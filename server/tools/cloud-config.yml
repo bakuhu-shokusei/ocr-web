@@ -1,0 +1,19 @@
+#cloud-config
+
+write_files:
+  - path: /usr/local/bin/install-node.sh
+    content: |
+      #!/bin/bash
+      curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
+      sudo apt-get install -y nodejs
+apt:
+  sources:
+    # docker.list:
+    #   source: deb [arch=amd64] https://download.docker.com/linux/ubuntu $RELEASE stable
+    #   keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+packages:
+  # - docker-ce
+  # - docker-ce-cli
+
+runcmd:
+  - [ sh, "/usr/local/bin/myscript.sh" ]
