@@ -12,6 +12,7 @@
     "@ant-design/icons-vue": "^7.0.1",
     "@vueuse/core": "^12.2.0",
     "ant-design-vue": "^4.2.6",
+    "axios": "^1.7.9",
     "mark.js": "^8.11.1",
     "pinia": "^2.3.0",
     "vue": "^3.5.13",

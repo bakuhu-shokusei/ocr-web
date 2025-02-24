@@ -9,4 +9,5 @@
 
 html {
   font-family: var(--font-japanese);
+  color: var(--text-main);
 }
