@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
 
 export async function login(userName: string, password: string) {
   try {
@@ -25,7 +25,11 @@ export async function listAssets() {
   }
 }
 
-export async function uploadFiles(bookName: string, files: File[]) {
+export async function uploadFiles(
+  bookName: string,
+  files: File[],
+  onProgress: (p: number) => void,
+) {
   try {
     const form = new FormData()
     form.append('bookName', bookName)
@@ -33,7 +37,16 @@ export async function uploadFiles(bookName: string, files: File[]) {
       form.append('image', file, encodeURIComponent(file.name))
     })
 
-    const result = await axios.post('/api/upload', form)
+    const config: AxiosRequestConfig = {
+      onUploadProgress: function (progressEvent) {
+        const percentCompleted = Math.round(
+          (progressEvent.loaded * 100) / progressEvent.total!,
+        )
+        onProgress(percentCompleted)
+      },
+    }
+
+    const result = await axios.post('/api/upload', form, config)
     return result.data.status === 'success'
   } catch (e) {
     handleError(e as any)
