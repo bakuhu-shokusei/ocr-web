@@ -9,7 +9,7 @@ const app = express()
 app.use('/assets', express.static(ASSETS_PATH!))
 app.use(cookieParser())
 app.use(bodyParser.json())
-const port = 3000
+const port = 3001
 
 app.use(loginRouter)
 app.use(assetsRouter)

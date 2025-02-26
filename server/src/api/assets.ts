@@ -1,9 +1,10 @@
 import { resolve, parse } from 'node:path'
-import { mkdirSync, existsSync, readdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, existsSync } from 'node:fs'
 import express, { type Request, type Response } from 'express'
 import multer from 'multer'
 import { ASSETS_PATH } from '../env'
 import { verifyLogin } from './login'
+import { getAssets } from '../utils/assets'
 
 export const assetsRouter = express.Router()
 
@@ -49,64 +50,3 @@ assetsRouter.get(
     })
   },
 )
-
-interface Page {
-  imgPath: string
-  pageName: string
-  ocrResult: JsonOutput | null
-}
-type Books = Record<string, Page[]>
-type BoxOutput = [number, number, number, number, string]
-type JsonOutput = {
-  contents: BoxOutput[]
-  imginfo: {
-    img_width: number
-    img_height: number
-    img_path: string
-    img_name: string
-  }
-}
-
-function getAssets(userName: string) {
-  const bookNames = readdirSync(resolve(ASSETS_PATH!, userName))
-  const books: Books = {}
-  bookNames.forEach((bookName) => {
-    const pages = readdirSync(resolve(ASSETS_PATH!, userName, bookName))
-    pages.forEach((page) => {
-      const innerFiles = readdirSync(
-        resolve(ASSETS_PATH!, userName, bookName, page),
-      )
-      books[bookName] = books[bookName] || []
-      let imgPath = [
-        '',
-        'assets',
-        userName,
-        bookName,
-        page,
-        innerFiles.find((i) => i.startsWith('img'))!,
-      ].join('/')
-      imgPath = encodeURI(imgPath)
-
-      const ocrJsonPath = resolve(
-        ASSETS_PATH!,
-        userName,
-        bookName,
-        page,
-        'ocr.json',
-      )
-      let ocrResult: JsonOutput | null = null
-      if (existsSync(ocrJsonPath)) {
-        try {
-          ocrResult = JSON.parse(readFileSync(ocrJsonPath).toString())
-        } catch {}
-      }
-
-      books[bookName].push({
-        imgPath,
-        pageName: page,
-        ocrResult,
-      })
-    })
-  })
-  return books
-}

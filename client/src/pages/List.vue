@@ -2,14 +2,14 @@
   <Header />
   <div class="list">
     <Upload />
-    <AssetsTables />
+    <BookList />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import Upload from '../components/Upload.vue'
-import AssetsTables from '../components/AssetsTables.vue'
+import BookList from '../components/BookList.vue'
 import Header from '../components/Header.vue'
 import { useAssetsStore } from '../store/assets'
 
