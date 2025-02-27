@@ -4,7 +4,8 @@ import express, { type Request, type Response } from 'express'
 import multer from 'multer'
 import { ASSETS_PATH } from '../env'
 import { verifyLogin } from './login'
-import { getAssets } from '../utils/assets'
+import { getAssets, saveOCRFile } from '@/utils/assets'
+import { taskRunner } from '@/utils/task-runner'
 
 export const assetsRouter = express.Router()
 
@@ -33,6 +34,20 @@ assetsRouter.post(
   verifyLogin,
   upload.fields([{ name: 'image' }]),
   (req: Request, res: Response) => {
+    taskRunner.check()
+    res.json({
+      status: 'success',
+    })
+  },
+)
+
+assetsRouter.post(
+  '/api/save-ocr-info',
+  verifyLogin,
+  (req: Request, res: Response) => {
+    const userName: string = (req as any).currentUser.userName
+    const { bookName, page, data } = req.body
+    saveOCRFile(userName, bookName, page, data)
     res.json({
       status: 'success',
     })

@@ -9,7 +9,7 @@ async function getCurrentStatus(): Promise<Status> {
   return Status.Ready
 }
 
-class RemoteServer {
+export class RemoteServer {
   status: Status
 
   constructor() {
@@ -21,10 +21,9 @@ class RemoteServer {
     this.status = await getCurrentStatus()
   }
 
-  async waitUntilReady() {
-    if (this.status === Status.Ready) return Promise.resolve()
+  async waitUntilReady(): Promise<string> {
+    if (this.status === Status.Ready) return Promise.resolve('localhost')
     return new Promise((res) => {})
   }
 }
 
-export const remoteServer = new RemoteServer()
