@@ -137,8 +137,7 @@ export class RemoteServer {
         await deleteInstance(this.activeInstance!.id)
         log('instance deleted')
       },
-      // 1000 * 60 * 30,
-      1000 * 60 * 5,
+      1000 * 60 * 30,
     )
   }
 
