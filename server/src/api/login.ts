@@ -11,7 +11,10 @@ loginRouter.post('/api/login', (req: Request, res: Response) => {
   const { userName, password } = req.body
   const user = users.getUser(userName, password)
   if (user) {
-    res.cookie('SessionID', user.sessionId)
+    res.cookie('SessionID', user.sessionId, {
+      maxAge: 1000 * 60 * 60 * 24 * 365,
+      httpOnly: true,
+    })
     res.status(200).json({
       status: 'success',
     })

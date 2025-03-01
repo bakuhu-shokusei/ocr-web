@@ -109,16 +109,16 @@ h3 {
   padding: 0 12px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) max-content;
 
   .boxes-area {
     /* this div is created by sortable */
     & > div {
       height: 100%;
+      box-sizing: border-box;
+      padding: 12px 0;
       overflow: auto;
       scrollbar-width: thin;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
       display: flex;
       gap: 8px;
       .single-box {

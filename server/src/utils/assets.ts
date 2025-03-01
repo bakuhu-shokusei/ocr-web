@@ -1,5 +1,12 @@
 import { resolve, parse } from 'node:path'
-import { readdirSync, openAsBlob, writeFileSync, existsSync } from 'node:fs'
+import {
+  readdirSync,
+  openAsBlob,
+  writeFileSync,
+  existsSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs'
 import { ASSETS_PATH } from '../env'
 import { logger } from './logger'
 
@@ -34,29 +41,30 @@ export function getAssets(userName: string): Books {
     .forEach((bookName) => {
       const pages = readdirSync(resolve(ASSETS_PATH!, userName, bookName), {
         withFileTypes: true,
-      }).filter((i) => i.isDirectory())
-      pages
+      })
+        .filter((i) => i.isDirectory())
         .map((i) => i.name)
-        .forEach((page) => {
-          const innerFiles = readdirSync(
-            resolve(ASSETS_PATH!, userName, bookName, page),
-          )
-          books[bookName] = books[bookName] || []
-          const getFileUrl = (fileName: string) => {
-            let p = ['', 'assets', userName, bookName, page, fileName].join('/')
-            return encodeURI(p)
-          }
-          const imgPath = getFileUrl(getImageName(userName, bookName, page))
-          const ocrPath = innerFiles.includes('ocr.json')
-            ? getFileUrl('ocr.json')
-            : undefined
+      sortStrings(pages)
+      pages.forEach((page) => {
+        const innerFiles = readdirSync(
+          resolve(ASSETS_PATH!, userName, bookName, page),
+        )
+        books[bookName] = books[bookName] || []
+        const getFileUrl = (fileName: string) => {
+          let p = ['', 'assets', userName, bookName, page, fileName].join('/')
+          return encodeURI(p)
+        }
+        const imgPath = getFileUrl(getImageName(userName, bookName, page))
+        const ocrPath = innerFiles.includes('ocr.json')
+          ? getFileUrl('ocr.json')
+          : undefined
 
-          books[bookName].push({
-            imgPath,
-            pageName: page,
-            ocrPath,
-          })
+        books[bookName].push({
+          imgPath,
+          pageName: page,
+          ocrPath,
         })
+      })
     })
   return books
 }
@@ -155,4 +163,94 @@ export function getNextToDo(): (remoteHost: string) => Promise<void> {
     }
   }
   return async () => {}
+}
+
+function sortStrings(array: string[]) {
+  array.sort((a, b) => a.localeCompare(b, 'ja-JP'))
+}
+
+export function getBookAsText(userName: string, bookName: string): string {
+  const path = resolve(ASSETS_PATH!, userName, bookName)
+  if (!existsSync(path)) return ''
+  const pages = readdirSync(path, {
+    withFileTypes: true,
+  })
+    .filter((i) => i.isDirectory())
+    .map((i) => i.name)
+  sortStrings(pages)
+  return pages
+    .map((page) => {
+      const ocrFilePath = resolve(
+        ASSETS_PATH!,
+        userName,
+        bookName,
+        page,
+        'ocr.json',
+      )
+      const ocrInfo = JSON.parse(readFileSync(ocrFilePath).toString())
+      return ocrInfo.txt
+    })
+    .join('\n\n')
+}
+
+export function deleteBook(userName: string, bookName: string) {
+  const path = resolve(ASSETS_PATH!, userName, bookName)
+  if (existsSync(path)) {
+    rmSync(path, {
+      recursive: true,
+      force: true,
+    })
+  }
+}
+
+interface SearchResult {
+  [s: string]: {
+    index: number // index of array
+    matchedText: string
+    pageName: string
+  }[]
+}
+export function searchText(
+  userName: string,
+  bookNames: string[],
+  keyword: string,
+) {
+  const result: SearchResult = {}
+  for (const bookName of bookNames) {
+    const matchedPages: SearchResult[string] = []
+
+    const pages = readdirSync(resolve(ASSETS_PATH!, userName, bookName), {
+      withFileTypes: true,
+    })
+      .filter((i) => i.isDirectory())
+      .map((i) => i.name)
+    sortStrings(pages)
+    for (let i = 0; i < pages.length; i++) {
+      const ocrFilePath = resolve(
+        ASSETS_PATH!,
+        userName,
+        bookName,
+        pages[i],
+        'ocr.json',
+      )
+      const ocrInfo = JSON.parse(readFileSync(ocrFilePath).toString())
+      const txtContent = ocrInfo.txt
+      if (typeof txtContent === 'string') {
+        const lines = txtContent.split('\n')
+        const matchedLines = lines.filter((l) => l.includes(keyword))
+        if (matchedLines.length > 0) {
+          matchedPages.push({
+            index: i,
+            matchedText: matchedLines.join('\n'),
+            pageName: pages[i],
+          })
+        }
+      }
+    }
+
+    if (matchedPages.length > 0) {
+      result[bookName] = matchedPages
+    }
+  }
+  return result
 }

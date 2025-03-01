@@ -76,7 +76,7 @@ const horizontalResize = () => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.2);
 
   &.v-enter-active,
   &.v-leave-active {

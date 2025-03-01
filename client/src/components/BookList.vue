@@ -14,7 +14,30 @@
           <div class="title">{{ book.bookName }}</div>
           <img :src="book.firstImg" />
           <div v-show="book.ocrDone" class="icons">
-            <EditOutlined />
+            <Tooltip>
+              <template #title>校正</template>
+              <EditOutlined @click="goToFirstPageOfBook(book.bookName)" />
+            </Tooltip>
+            <Tooltip>
+              <template #title>ダウンロード</template>
+              <a
+                :href="`/api/download-book?bookName=${book.bookName}`"
+                :download="`${book.bookName}.txt`"
+              >
+                <DownloadOutlined />
+              </a>
+            </Tooltip>
+            <Tooltip>
+              <template #title>削除</template>
+              <Popconfirm
+                title="Are you sure delete this book?"
+                ok-text="Yes"
+                cancel-text="No"
+                @confirm="assetsStore.deleteBook(book.bookName)"
+              >
+                <DeleteOutlined />
+              </Popconfirm>
+            </Tooltip>
           </div>
         </div>
       </BadgeRibbon>
@@ -24,29 +47,40 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { BadgeRibbon } from 'ant-design-vue'
-import { EditOutlined } from '@ant-design/icons-vue'
-import { useAssetsStore } from '../store/assets'
+import { BadgeRibbon, Tooltip, Popconfirm } from 'ant-design-vue'
+import {
+  EditOutlined,
+  DownloadOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons-vue'
 import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
+import { useAssetsStore } from '../store/assets'
 
 const assetsStore = useAssetsStore()
 const { books } = storeToRefs(assetsStore)
 
 const list = computed(() => {
   const bookNames = Object.keys(books.value)
-  return bookNames.map((i) => {
-    const ocrDone = !!books.value[i][0].ocrPath
-    return {
-      bookName: i,
-      firstImg: books.value[i][0].imgPath,
-      ocrDone,
-      badgeText: ocrDone ? 'OCR完了' : '準備中',
-      badgeColor: ocrDone ? 'green' : 'magenta',
-    }
-  })
+  return bookNames
+    .filter((i) => books.value[i].length > 0)
+    .map((i) => {
+      const ocrDone = books.value[i].every((p) => !!p.ocrPath)
+      return {
+        bookName: i,
+        firstImg: books.value[i][0].imgPath,
+        ocrDone,
+        badgeText: ocrDone ? 'OCR完了' : '準備中',
+        badgeColor: ocrDone ? 'green' : 'magenta',
+      }
+    })
 })
 
-const goToDetail = (book: string, index: number) => {}
+const router = useRouter()
+
+const goToFirstPageOfBook = (book: string) => {
+  router.push({ name: 'proofreading', params: { book, page: 1 } })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -90,7 +124,7 @@ const goToDetail = (book: string, index: number) => {}
         padding-top: 12px;
         font-size: 20px;
         display: flex;
-        justify-content: center;
+        justify-content: space-evenly;
         .anticon {
           cursor: pointer;
           padding: 8px;
@@ -99,6 +133,9 @@ const goToDetail = (book: string, index: number) => {}
           &:hover {
             background-color: #c2e7ff;
           }
+        }
+        a {
+          color: inherit;
         }
       }
     }

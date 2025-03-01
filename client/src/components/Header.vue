@@ -17,9 +17,10 @@ import {
 import { Menu } from 'ant-design-vue'
 import type { MenuProps } from 'ant-design-vue'
 import { useAssetsStore } from '../store/assets'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
 const assetsStore = useAssetsStore()
 
 const items = computed<MenuProps['items']>(() => {
@@ -47,9 +48,24 @@ const items = computed<MenuProps['items']>(() => {
   ]
 })
 
-const onSelect: MenuProps['onSelect'] = ({ key }) => {}
+const onSelect: MenuProps['onSelect'] = ({ key }) => {
+  switch (key) {
+    case 'list':
+      router.push({ name: 'list' })
+      break
+    case 'search':
+      router.push({ name: 'search' })
+      break
+    default:
+      router.push({ name: 'proofreading', params: { book: key, page: 1 } })
+      break
+  }
+}
 
-const current = computed(() => {
+const current = computed<string[]>(() => {
+  if (route.name === 'proofreading') {
+    return [route.params.book as string]
+  }
   return [route.name as string]
 })
 </script>

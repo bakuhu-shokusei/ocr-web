@@ -14,7 +14,7 @@
     >
       リセット
     </Button>
-    <Button :icon="h(SaveOutlined)" type="primary" @click="saveChanges">
+    <Button :icon="h(SaveOutlined)" type="primary" @click="savePageInfo">
       保存
     </Button>
   </div>
@@ -22,17 +22,24 @@
 
 <script setup lang="ts">
 import { h } from 'vue'
-import { Pagination, Button } from 'ant-design-vue'
+import { Pagination, Button, message } from 'ant-design-vue'
 import { SaveOutlined } from '@ant-design/icons-vue'
 import { useProofreadingStore } from '../../store/proofreading'
 import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
 
 const proofreadingStore = useProofreadingStore()
-const { updatePage, saveChanges, resetChanges } = proofreadingStore
+const { book, saveChanges, resetChanges } = proofreadingStore
 const { totalPages, page } = storeToRefs(proofreadingStore)
 
+const router = useRouter()
+
 const onPageChange = (page: number) => {
-  updatePage(page)
+  router.push({ name: 'proofreading', params: { book, page } })
+}
+const savePageInfo = async () => {
+  await saveChanges()
+  message.success('saved successfully')
 }
 </script>
 

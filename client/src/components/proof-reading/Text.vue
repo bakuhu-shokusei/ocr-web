@@ -23,30 +23,15 @@ h3 {
 }
 
 .text-container {
-  padding: 0 12px;
-  display: flex;
-  flex-direction: column;
+  padding: 12px;
 
   .text-content {
-    flex: 1;
+    height: 100%;
     resize: none;
     margin-bottom: 12px;
     font-family: var(--font-japanese);
     &.is-vertical {
       writing-mode: vertical-rl;
-    }
-  }
-
-  .controls {
-    display: flex;
-    align-items: center;
-    padding: 8px 0;
-    .controls-text {
-      font-family: var(--font-japanese);
-      color: var(--text-main);
-      font-size: 12px;
-      line-height: 16px;
-      margin-right: 8px;
     }
   }
 }

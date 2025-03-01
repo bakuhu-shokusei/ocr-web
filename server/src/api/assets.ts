@@ -4,7 +4,13 @@ import express, { type Request, type Response } from 'express'
 import multer from 'multer'
 import { ASSETS_PATH } from '../env'
 import { verifyLogin } from './login'
-import { getAssets, saveOCRFile } from '@/utils/assets'
+import {
+  deleteBook,
+  getAssets,
+  getBookAsText,
+  saveOCRFile,
+  searchText,
+} from '@/utils/assets'
 import { taskRunner } from '@/utils/task-runner'
 
 export const assetsRouter = express.Router()
@@ -65,3 +71,39 @@ assetsRouter.get(
     })
   },
 )
+
+assetsRouter.get(
+  '/api/download-book',
+  verifyLogin,
+  (req: Request, res: Response) => {
+    const userName: string = (req as any).currentUser.userName
+    const { bookName } = req.query
+    const content = getBookAsText(userName, bookName as string)
+    res.setHeader('Content-disposition', `attachment; filename=${bookName}.txt`)
+    res.setHeader('Content-type', 'text/plain')
+    res.send(content)
+  },
+)
+
+assetsRouter.delete(
+  '/api/delete-book',
+  verifyLogin,
+  (req: Request, res: Response) => {
+    const userName: string = (req as any).currentUser.userName
+    const { bookName } = req.body
+    deleteBook(userName, bookName)
+    res.json({
+      status: 'success',
+    })
+  },
+)
+
+assetsRouter.post('/api/search', verifyLogin, (req: Request, res: Response) => {
+  const userName: string = (req as any).currentUser.userName
+  const { keyword, bookNames } = req.body
+  const result = searchText(userName, bookNames, keyword)
+  res.json({
+    status: 'success',
+    data: result,
+  })
+})

@@ -1,5 +1,4 @@
 <template>
-  <Header />
   <div class="list">
     <Upload />
     <BookList />
@@ -7,16 +6,33 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeMount, onUnmounted, watch } from 'vue'
 import Upload from '../components/Upload.vue'
 import BookList from '../components/BookList.vue'
-import Header from '../components/Header.vue'
 import { useAssetsStore } from '../store/assets'
 
 const assetsStore = useAssetsStore()
 
-onMounted(() => {
+onBeforeMount(() => {
   assetsStore.getAssets()
+})
+
+let timer: number
+const INTERVAL = 1000 * 30
+watch(
+  () => assetsStore.hasUnfinished,
+  (hasUnfinished) => {
+    if (hasUnfinished) {
+      clearInterval(timer)
+      timer = setInterval(assetsStore.getAssets, INTERVAL)
+    } else {
+      clearInterval(timer)
+    }
+  },
+  { immediate: true },
+)
+onUnmounted(() => {
+  clearInterval(timer)
 })
 </script>
 

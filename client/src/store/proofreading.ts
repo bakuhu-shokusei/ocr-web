@@ -1,8 +1,8 @@
-import axios from 'axios'
 import { defineStore } from 'pinia'
 import { ref, computed, toRaw } from 'vue'
 import { useAssetsStore } from './assets'
 import { convertFormat, saveBack } from '../utils'
+import { getOCRJson, saveOCRJson } from '../api'
 import type { Box, JsonOutput } from '../utils'
 
 interface EditStatus {
@@ -22,43 +22,43 @@ interface Detail {
   }
 }
 
+const INIT_STATE = {
+  ready: false,
+  imageFileName: '',
+  imageUrl: '',
+  textContent: '',
+  textContentCopy: '',
+  layout: {
+    boxes: [],
+    editHistory: [],
+    editIndex: 0,
+  },
+}
+
 export const useProofreadingStore = defineStore('proofreading', () => {
-  const { books } = useAssetsStore()
+  const assetsStore = useAssetsStore()
 
   const book = ref<string>()
   const page = ref<number>() // start from 1
-  const pageDetail = ref<Detail>({
-    ready: false,
-    imageFileName: '',
-    imageUrl: '',
-    textContent: '',
-    textContentCopy: '',
-    layout: {
-      boxes: [],
-      editHistory: [],
-      editIndex: 0,
-    },
-  })
+  const pageDetail = ref<Detail>(structuredClone(INIT_STATE))
   let ocrInfo: JsonOutput
 
   const totalPages = computed(() => {
     if (!book.value) return 0
-    return books[book.value].length ?? 0
-  })
-  const draftChanged = computed(() => {
-    return pageDetail.value.textContent !== pageDetail.value.textContentCopy
+    return assetsStore.books[book.value].length ?? 0
   })
 
   const initialize = (_book: string, _page?: number) => {
     book.value = _book
     page.value = _page ?? 1
+    pageDetail.value = structuredClone(INIT_STATE)
     update()
   }
 
   const update = async () => {
     if (!book.value || !page.value) return
     pageDetail.value.ready = false
-    const detail = books[book.value]?.[page.value - 1]
+    const detail = assetsStore.books[book.value]?.[page.value - 1]
     if (!detail) return
     ocrInfo = await getOCRJson(detail.ocrPath!)
     const boxes = convertFormat(ocrInfo).boxes
@@ -76,32 +76,30 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     }
   }
 
-  const updatePage = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages.value) {
-      page.value = newPage
-      update()
-    }
-  }
-
-  const saveChanges = async () => {
-    pageDetail.value.ready = false
-
-    if (!book.value || !page.value) return
-    const detail = books[book.value]?.[page.value - 1]
-    if (!detail) return
+  const getContentToSave = (): {
+    book: string
+    page: string
+    data: JsonOutput
+  } | null => {
+    if (!book.value || !page.value) return null
+    const detail = assetsStore.books[book.value]?.[page.value - 1]
+    if (!detail) return null
 
     // save json
-    await saveOCRJson(
-      book.value,
-      detail.pageName,
-      saveBack(
-        {
-          boxes: currentEditStatus.value.boxes,
-          text: pageDetail.value.textContentCopy,
-        },
-        ocrInfo,
-      ),
+    const newJson = saveBack(
+      {
+        boxes: currentEditStatus.value.boxes,
+        text: pageDetail.value.textContentCopy,
+      },
+      ocrInfo,
     )
+    return { book: book.value, page: detail.pageName, data: newJson }
+  }
+  const saveChanges = async () => {
+    pageDetail.value.ready = false
+    const content = getContentToSave()
+    if (!content) return
+    await saveOCRJson(content.book, content.page, content.data)
     pageDetail.value.ready = true
   }
   const resetChanges = () => {
@@ -215,8 +213,6 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     initialize,
     pageDetail,
     totalPages,
-    updatePage,
-    draftChanged,
     resetChanges,
     saveChanges,
     selectBox,
@@ -230,18 +226,6 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     deleteBox,
     canDeleteBox,
     replaceTxt,
+    getContentToSave,
   }
 })
-
-async function getOCRJson(url: string): Promise<JsonOutput> {
-  const response = await axios.get<JsonOutput>(url)
-  return response.data
-}
-
-async function saveOCRJson(bookName: string, page: string, data: JsonOutput) {
-  await axios.post('/api/save-ocr-info', {
-    bookName,
-    page,
-    data,
-  })
-}

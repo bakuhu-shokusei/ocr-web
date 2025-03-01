@@ -31,8 +31,8 @@ class TaskRunner {
       await next(remoteHost)
       log('single task done')
     } catch {
-      logError('task failed, retry in 1 second')
-      await new Promise((res) => setTimeout(res, 1000))
+      logError('task failed, retry in 20 second')
+      await new Promise((res) => setTimeout(res, 1000 * 20))
     }
     process.nextTick(() => {
       this.loop()
