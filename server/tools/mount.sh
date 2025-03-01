@@ -11,7 +11,7 @@ curl "https://api.vultr.com/v2/blocks/${BLOCK_ID}/detach" \
   -H "Content-Type: application/json" \
   --data '{
     "live" : true
-  }'
+  }' || true
 curl "https://api.vultr.com/v2/blocks/${BLOCK_ID}/attach" \
   -X POST \
   -H "Authorization: Bearer ${VULTR_API_KEY}" \

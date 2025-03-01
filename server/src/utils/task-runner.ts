@@ -23,15 +23,16 @@ class TaskRunner {
       return
     }
     this.active = true
-    log('has task, wait for remote server')
-    const remoteHost = await this.remoteServer.waitUntilReady()
-    log('remote server ready')
-    const next = this.getNextTask()
     try {
+      log('has task, wait for remote server')
+      const remoteHost = await this.remoteServer.waitUntilReady()
+      log('remote server ready')
+      const next = this.getNextTask()
       await next(remoteHost)
       log('single task done')
-    } catch {
-      logError('task failed, retry in 20 second')
+    } catch (e) {
+      logger.error(`[Task runner]`, e)
+      logError('task failed, retry in 20 seconds')
       await new Promise((res) => setTimeout(res, 1000 * 20))
     }
     process.nextTick(() => {
