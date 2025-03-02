@@ -6,6 +6,7 @@ import {
   existsSync,
   readFileSync,
   rmSync,
+  mkdirSync,
 } from 'node:fs'
 import { ASSETS_PATH } from '../env'
 import { logger } from './logger'
@@ -31,7 +32,13 @@ function getImageName(userName: string, bookName: string, page: string) {
   )
   return innerFiles.find((i) => i.startsWith('img'))!
 }
+function createDirIfNotExist(path: string) {
+  if (!existsSync(path)) {
+    mkdirSync(path, { recursive: true })
+  }
+}
 export function getAssets(userName: string): Books {
+  createDirIfNotExist(resolve(ASSETS_PATH!, userName))
   const bookNames = readdirSync(resolve(ASSETS_PATH!, userName), {
     withFileTypes: true,
   }).filter((i) => i.isDirectory())

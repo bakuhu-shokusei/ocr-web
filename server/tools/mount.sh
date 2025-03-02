@@ -4,7 +4,7 @@
 
 SELF_ID=$(curl http://169.254.169.254/v1.json | jq -r '."instance-v2-id"')
 BLOCK_ID="eb6d74c7-81da-40d2-843b-bfca057e9ca8"
-VULTR_API_KEY="PECVK4F4OROFEE4ZEL4PNZRR2S66HHILMWVA"
+VULTR_API_KEY=""
 curl "https://api.vultr.com/v2/blocks/${BLOCK_ID}/detach" \
   -X POST \
   -H "Authorization: Bearer ${VULTR_API_KEY}" \

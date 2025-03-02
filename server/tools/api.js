@@ -1,12 +1,10 @@
 const VultrNode = require('@vultr/vultr-node')
 const fetch = require('node-fetch')
 
-const apiKey = 'PECVK4F4OROFEE4ZEL4PNZRR2S66HHILMWVA'
+const apiKey = ''
 const vultr = VultrNode.initialize({
   apiKey,
 })
-const vfs_id = '39142ab7-14df-497c-922c-5452f9d7d120'
-const vps_id = 'e680ed8d-9089-40df-8fc1-c78f09cc15be'
 
 const cloudInit = ``
 

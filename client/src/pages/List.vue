@@ -1,7 +1,9 @@
 <template>
-  <div class="list">
-    <Upload />
-    <BookList />
+  <div>
+    <div class="list">
+      <Upload />
+      <BookList />
+    </div>
   </div>
 </template>
 

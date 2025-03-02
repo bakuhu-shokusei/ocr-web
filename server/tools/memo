@@ -1,10 +1,2 @@
-region:nrt
-plan:vcg-a16-2c-8g-2vram, vcg-a16-2c-8g-2vram
-app_id:1125
-
-
-
-
-
 docker image save --output /mnt/docker_image/ocr-server.tar ocr-server
 docker load --input /mnt/docker_image/ocr-server.tar

@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import express from 'express'
 import cookieParser from 'cookie-parser'
 import bodyParser from 'body-parser'
@@ -6,6 +7,7 @@ import { assetsRouter } from '@/api/assets'
 import { ASSETS_PATH } from './env'
 
 const app = express()
+app.use('/', express.static(resolve(__dirname, '../../client/dist')))
 app.use(cookieParser())
 app.use(bodyParser.json())
 const port = 3001
