@@ -116,7 +116,7 @@ async function uploadFiles(
     const { ext } = parse(getImageName(userName, bookName, pages[idx]))
     formData.append('image', file, `${idx}${ext}`)
   })
-  log('upload images')
+  log('【WAKUWAKU】upload images')
   const response = await fetch(`http://${remoteHost}:3000/start-ocr`, {
     method: 'POST',
     body: formData,
@@ -125,13 +125,15 @@ async function uploadFiles(
   if (data.status !== 'ok') {
     throw 'ocr api failed'
   }
-  log('got ocr results')
+  log('【HAPPY】got ocr results')
   const result = data.result
 
   // write json to files
   pages.forEach((page, idx) => {
     const jsonData = result[`${idx}.json`]
-    saveOCRFile(userName, bookName, page, jsonData)
+    if (jsonData) {
+      saveOCRFile(userName, bookName, page, jsonData)
+    }
   })
 }
 
@@ -157,9 +159,10 @@ export function getNextToDo(): (remoteHost: string) => Promise<void> {
       return books[bn].some((page) => !page.ocrPath)
     })
     if (unfinishedBook) {
-      const unfinishedPages = books[unfinishedBook].filter(
-        (page) => !page.ocrPath,
-      )
+      const unfinishedPages = books[unfinishedBook]
+        .filter((page) => !page.ocrPath)
+        // do not send too many at one time
+        .slice(0, 20)
       return async (remoteHost) => {
         log(`found unfinished book: ${unfinishedBook}`)
         await uploadFiles(

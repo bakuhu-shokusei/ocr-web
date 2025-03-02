@@ -51,7 +51,7 @@ async function createInstance(): Promise<VultrInstance | null> {
 async function deleteInstance(id: string) {
   await vultr.instances.deleteInstance({ 'instance-id': id })
 }
-async function getInstance(): Promise<VultrInstance | null> {
+async function getInstance(retry: number): Promise<VultrInstance | null> {
   try {
     const result = await vultr.instances.listInstances({
       label: LABEL,
@@ -61,7 +61,11 @@ async function getInstance(): Promise<VultrInstance | null> {
     if (instances.length === 0) return null
     return instances[0]
   } catch {
-    return null
+    if (retry > 0) {
+      return await getInstance(retry - 1)
+    } else {
+      return null
+    }
   }
 }
 
@@ -76,7 +80,7 @@ async function getCurrentStatus(): Promise<{
   status: Status
   instance?: VultrInstance
 }> {
-  const activeInstance = await getInstance()
+  const activeInstance = await getInstance(2)
   if (!activeInstance) return { status: Status.NotExist }
   try {
     const healthCheckResult = await (
