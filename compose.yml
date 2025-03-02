@@ -1,0 +1,22 @@
+services:
+  ocr-web:
+    build: .
+    volumes:
+      - type: bind
+        source: "./server/.env"
+        target: "/ocr-web/server/.env"
+
+  nginx:
+    image: jonasal/nginx-certbot:latest
+    restart: unless-stopped
+    env_file:
+      - ./nginx-certbot.env
+    ports:
+      - 80:80
+      - 443:443
+    volumes:                                    # Storage can be either a
+      - nginx_secrets:/etc/letsencrypt          # Docker managed volume (see list at the bottom)
+      - ./user_conf.d:/etc/nginx/user_conf.d    # or a host mount with a relative or full path.
+
+volumes:
+  nginx_secrets:

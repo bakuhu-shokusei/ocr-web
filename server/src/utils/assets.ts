@@ -20,6 +20,8 @@ interface Page {
 }
 type Books = Record<string, Page[]>
 
+createDirIfNotExist(resolve(ASSETS_PATH!))
+
 function getUsers(): string[] {
   const userNames = readdirSync(resolve(ASSETS_PATH!), {
     withFileTypes: true,

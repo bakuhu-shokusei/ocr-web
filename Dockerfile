@@ -28,6 +28,4 @@ COPY ./server/package.json ./server/package-lock.json ./
 RUN npm install --only=production
 COPY --from=build /ocr-web/server/dist ./dist
 
-EXPOSE 3001
-
 ENTRYPOINT ["node", "./dist/index.js"]
