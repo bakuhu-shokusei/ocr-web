@@ -57,7 +57,7 @@ export async function uploadFiles(
 
 function handleError(e: AxiosError) {
   if (e.response?.status === 401) {
-    location.href = '/login'
+    location.href = '/#/login'
   }
 }
 
