@@ -1,10 +1,14 @@
 services:
   ocr-web:
+    restart: unless-stopped
     build: .
     volumes:
       - type: bind
         source: "./server/.env"
         target: "/ocr-web/server/.env"
+      - type: bind
+        source: "/root/ocr-assets"
+        target: "/ocr-web/server/ocr-assets"
 
   nginx:
     image: jonasal/nginx-certbot:latest
