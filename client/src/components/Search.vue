@@ -90,6 +90,7 @@ const goToDetail = (book: string, index: number) => {
     width: 100%;
     max-width: 800px;
     margin: 0 auto;
+    box-sizing: border-box;
     .checkboxes {
       display: flex;
       align-items: center;
