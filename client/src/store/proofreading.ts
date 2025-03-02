@@ -95,12 +95,18 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     )
     return { book: book.value, page: detail.pageName, data: newJson }
   }
-  const saveChanges = async () => {
-    pageDetail.value.ready = false
+  const saveChanges = async (showAnimation: boolean) => {
+    if (showAnimation) {
+      pageDetail.value.ready = false
+    }
+
     const content = getContentToSave()
     if (!content) return
     await saveOCRJson(content.book, content.page, content.data)
-    pageDetail.value.ready = true
+
+    if (showAnimation) {
+      pageDetail.value.ready = true
+    }
   }
   const resetChanges = () => {
     pageDetail.value.textContentCopy = pageDetail.value.textContent

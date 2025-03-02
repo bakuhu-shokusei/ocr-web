@@ -42,7 +42,7 @@ onMounted(() => {
     const { data } = newContent
     const newData = JSON.stringify(data)
     if (newData !== previouslySaved) {
-      prrofreadingStore.saveChanges()
+      prrofreadingStore.saveChanges(false)
       previouslySaved = newData
     }
   }, INTERVAL)

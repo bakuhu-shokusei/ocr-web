@@ -38,7 +38,7 @@ const onPageChange = (page: number) => {
   router.push({ name: 'proofreading', params: { book, page } })
 }
 const savePageInfo = async () => {
-  await saveChanges()
+  await saveChanges(true)
   message.success('saved successfully')
 }
 </script>
