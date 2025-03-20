@@ -1,5 +1,7 @@
 services:
   ocr-web:
+    environment:
+      TZ: "Asia/Tokyo"
     restart: unless-stopped
     build: .
     volumes:
@@ -11,6 +13,8 @@ services:
         target: "/ocr-web/server/ocr-assets"
 
   nginx:
+    environment:
+      TZ: "Asia/Tokyo"
     image: jonasal/nginx-certbot:latest
     restart: unless-stopped
     env_file:

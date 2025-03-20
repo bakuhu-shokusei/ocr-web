@@ -3,3 +3,7 @@ docker load --input /mnt/docker_image/ocr-server.tar
 
 # update
 docker-compose -f compose.yml up --force-recreate --build -d
+
+# log
+docker-compose logs --tail 50 nginx
+docker-compose restart nginx
