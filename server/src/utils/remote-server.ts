@@ -133,8 +133,10 @@ export class RemoteServer {
 
   private startCountDown() {
     if (this.timer !== null) {
+      log('【timer】cleared')
       clearTimeout(this.timer)
     }
+    log('【timer】started')
     this.timer = setTimeout(
       async () => {
         log('try to delete instance')
