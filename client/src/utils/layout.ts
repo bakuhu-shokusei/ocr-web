@@ -1,4 +1,5 @@
 export interface Box {
+  uuid: string
   xmin: number
   ymin: number
   xmax: number
@@ -26,6 +27,7 @@ export type PageInfo = {
 export function convertFormat(old: JsonOutput): PageInfo {
   const [width, height] = [old.imginfo.img_width, old.imginfo.img_height]
   const boxes = old.contents.map((i) => ({
+    uuid: generateUUID(),
     xmin: i[0] / width,
     ymin: i[1] / height,
     xmax: i[2] / width,
@@ -50,9 +52,22 @@ export function saveBack(pageInfo: PageInfo, old: JsonOutput): JsonOutput {
   }
 }
 
-export function genKey(box: Box) {
-  const key = [box.xmin, box.ymin, box.xmax, box.ymax]
-    .map((i) => Math.round(i * 10 ** 6))
-    .join('-')
-  return key
+export function generateUUID() {
+  let d = new Date().getTime()
+  let d2 =
+    (typeof performance !== 'undefined' &&
+      performance.now &&
+      performance.now() * 1000) ||
+    0
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    let r = Math.random() * 16
+    if (d > 0) {
+      r = (d + r) % 16 | 0
+      d = Math.floor(d / 16)
+    } else {
+      r = (d2 + r) % 16 | 0
+      d2 = Math.floor(d2 / 16)
+    }
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
 }

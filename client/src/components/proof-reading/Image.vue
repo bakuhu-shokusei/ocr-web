@@ -1,8 +1,19 @@
 <template>
-  <div class="image-container">
+  <div
+    class="image-container"
+    :class="{
+      'is-edit-mode': mode === 'edit',
+      'is-drag-mode': mode === 'drag',
+    }"
+  >
     <h3 class="file-name">{{ pageDetail.imageFileName }}</h3>
-    <div ref="imgContainer" class="image-container-body" @mousedown="mouseDown">
+    <div
+      ref="imgContainer"
+      class="image-container-body"
+      @mousedown="dragToMove"
+    >
       <div
+        ref="actualImage"
         class="actual-image"
         :style="{
           backgroundImage: `url(${pageDetail.imageUrl})`,
@@ -13,17 +24,29 @@
           'fit-height': fitWidthOrHeight === 'height',
           [`scale-level-${zoomLevel.toFixed(1).replace('.', '-')}`]: true,
         }"
+        @mousedown="addNewBox"
       >
         <div
-          v-for="({ box, style }, idx) in boxesStyle"
-          :key="genKey(box)"
+          v-for="({ box, selected, style }, idx) in boxesStyle"
+          :key="box.uuid"
           :style="style"
           class="layout-box"
-          :class="{ selected: idx === currentEditStatus?.selectedIndex }"
+          :class="{ selected, hidden: mode === 'edit' && selected }"
           @click="proofreadingStore.selectBox(idx)"
         >
           <p class="box-number">{{ idx + 1 }}</p>
         </div>
+        <VueDraggableResizable
+          v-if="mode === 'edit' && boxBeingEdited"
+          :key="boxBeingEdited.index"
+          v-bind="boxBeingEdited.draggableOptions"
+          @drag-stop="boxBeingEdited.onDrag"
+          @resize-stop="boxBeingEdited.onResize"
+        >
+          <div class="layout-box resizable">
+            <p class="box-number">{{ boxBeingEdited.index + 1 }}</p>
+          </div>
+        </VueDraggableResizable>
       </div>
     </div>
     <div class="controls">
@@ -47,11 +70,12 @@ import { ref, computed, watch } from 'vue'
 import { useStorage, useElementSize } from '@vueuse/core'
 import { Slider } from 'ant-design-vue'
 import { storeToRefs } from 'pinia'
+import VueDraggableResizable from 'vue-draggable-resizable'
 import { useProofreadingStore } from '../../store/proofreading'
-import { genKey, type Box } from '../../utils'
+import { generateUUID, type Box } from '../../utils'
 
 const proofreadingStore = useProofreadingStore()
-const { pageDetail, currentEditStatus } = storeToRefs(proofreadingStore)
+const { pageDetail, currentEditStatus, mode } = storeToRefs(proofreadingStore)
 
 const imageOriginalSize = ref<[number, number]>([1, 1])
 watch(
@@ -68,6 +92,8 @@ watch(
 
 const imgContainer = ref<HTMLDivElement>()
 const imgContainerSize = useElementSize(imgContainer)
+const actualImage = ref<HTMLDivElement>()
+const actualImageSize = useElementSize(actualImage)
 const fitWidthOrHeight = computed(() => {
   const w0 = imgContainerSize.width.value
   const h0 = imgContainerSize.height.value
@@ -76,11 +102,14 @@ const fitWidthOrHeight = computed(() => {
 })
 
 const zoomLevel = useStorage('image-zoom-level', 1)
-const boxesStyle = computed<{ box: Box; style: CSSProperties }[]>(() => {
+const boxesStyle = computed<
+  { box: Box; selected: boolean; style: CSSProperties }[]
+>(() => {
   const toString = (p: number) => `${(p * 100).toFixed(5)}%`
-  return (currentEditStatus.value?.boxes || []).map((box) => {
+  return (currentEditStatus.value?.boxes || []).map((box, idx) => {
     return {
       box,
+      selected: idx === currentEditStatus.value.selectedIndex,
       style: {
         left: toString(box.xmin),
         top: toString(box.ymin),
@@ -91,7 +120,77 @@ const boxesStyle = computed<{ box: Box; style: CSSProperties }[]>(() => {
   })
 })
 
-const mouseDown = (e: MouseEvent) => {
+const boxBeingEdited = computed(() => {
+  const { boxes, selectedIndex } = currentEditStatus.value
+  const box = boxes[selectedIndex]
+  const w0 = actualImageSize.width.value
+  const h0 = actualImageSize.height.value
+  if (!box || !w0 || !h0) return null
+
+  const { xmin, xmax, ymin, ymax } = box
+
+  const draggableOptions = {
+    x: w0 * xmin,
+    y: h0 * ymin,
+    w: w0 * (xmax - xmin),
+    h: h0 * (ymax - ymin),
+    parent: true,
+    handles: ['tl', 'tr', 'mr', 'br', 'bl', 'ml'],
+    active: true,
+  }
+  const onDrag = (left: number, top: number) => {
+    const xmin = left / w0
+    const ymin = top / h0
+    proofreadingStore.saveDraggedBox(selectedIndex, { xmin, ymin })
+  }
+  const onResize = (
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+  ) => {
+    const xmin = left / w0
+    const xmax = (left + width) / w0
+    const ymin = top / h0
+    const ymax = (top + height) / h0
+    proofreadingStore.saveResizedBox(selectedIndex, { xmin, xmax, ymin, ymax })
+  }
+  return { draggableOptions, index: selectedIndex, onDrag, onResize }
+})
+
+const addNewBox = (e: MouseEvent) => {
+  if (mode.value !== 'add') return
+
+  const container = e.currentTarget as HTMLElement
+  if (!container) return
+  const [w0, h0] = [container.clientWidth, container.clientHeight]
+  const { left: l0, top: t0 } = container.getBoundingClientRect()
+  const [prevX, prevY] = [e.clientX - l0, e.clientY - t0]
+  let isNew = true
+  function onMove(e: MouseEvent) {
+    const [newX, newY] = [e.clientX - l0, e.clientY - t0]
+    const box: Box = {
+      uuid: generateUUID(),
+      xmin: Math.min(prevX, newX) / w0,
+      ymin: Math.min(prevY, newY) / h0,
+      xmax: Math.max(prevX, newX) / w0,
+      ymax: Math.max(prevY, newY) / h0,
+      text: '',
+    }
+    proofreadingStore.insertNewBox(box, isNew)
+    isNew = false
+  }
+  function onEnd() {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onEnd)
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onEnd)
+}
+
+const dragToMove = (e: MouseEvent) => {
+  if (mode.value !== 'drag') return
+
   e.preventDefault()
   const container = e.currentTarget as HTMLElement
   if (!container) return
@@ -151,6 +250,24 @@ p {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: max-content minmax(0, 1fr) max-content;
 
+  &.is-drag-mode {
+    .image-container-body {
+      cursor: grab;
+    }
+  }
+
+  .file-name {
+    margin: 12px 0;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--text-secondary);
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    align-items: center;
+    margin-right: auto;
+  }
+
   .controls {
     display: flex;
     align-items: center;
@@ -162,10 +279,10 @@ p {
       line-height: 16px;
     }
   }
+
   .image-container-body {
     flex: 1;
     overflow: auto;
-    cursor: grab;
     scrollbar-width: thin;
     position: relative;
     .actual-image {
@@ -233,11 +350,21 @@ p {
       }
     }
     .layout-box {
+      $border-width: 2px;
       position: absolute;
-      border: 2px solid rgba(var(--primary-blue-rgb), 0.3);
+      box-sizing: content-box;
+      transform: translate(-$border-width, -$border-width);
+      border: $border-width solid rgba(var(--primary-blue-rgb), 0.3);
       &.selected {
         border-color: rgba(var(--primary-blue-rgb), 1);
         background-color: rgba(var(--primary-blue-rgb), 0.1);
+      }
+      &.hidden {
+        display: none;
+      }
+      &.resizable {
+        width: 100%;
+        height: 100%;
       }
       .box-number {
         position: absolute;
@@ -250,4 +377,8 @@ p {
     }
   }
 }
+</style>
+
+<style lang="scss">
+@import 'vue-draggable-resizable/style.css';
 </style>

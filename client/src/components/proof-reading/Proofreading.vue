@@ -135,18 +135,6 @@ const horizontalResize = () => {
         grid-row: 1 / 2;
       }
     }
-
-    :deep(.file-name) {
-      font-size: 12px;
-      line-height: 16px;
-      color: var(--text-secondary);
-      margin: 12px 0;
-      text-overflow: ellipsis;
-      overflow: hidden;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-    }
   }
 }
 </style>

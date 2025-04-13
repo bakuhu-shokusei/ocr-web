@@ -22,7 +22,7 @@ interface Detail {
   }
 }
 
-const INIT_STATE = {
+const INIT_STATE: Detail = {
   ready: false,
   imageFileName: '',
   imageUrl: '',
@@ -35,12 +35,15 @@ const INIT_STATE = {
   },
 }
 
+type Mode = 'drag' | 'edit' | 'add'
+
 export const useProofreadingStore = defineStore('proofreading', () => {
   const assetsStore = useAssetsStore()
 
   const book = ref<string>()
   const page = ref<number>() // start from 1
   const pageDetail = ref<Detail>(structuredClone(INIT_STATE))
+  const mode = ref<Mode>('drag')
   let ocrInfo: JsonOutput
 
   const totalPages = computed(() => {
@@ -118,6 +121,9 @@ export const useProofreadingStore = defineStore('proofreading', () => {
   }
 
   // layout
+  const resetSelected = () => {
+    currentEditStatus.value.selectedIndex = -1
+  }
   const selectBox = (index: number /* start at 0 */) => {
     const boxes = currentEditStatus.value.boxes
     if (index < 0 || index >= boxes.length) return
@@ -128,16 +134,31 @@ export const useProofreadingStore = defineStore('proofreading', () => {
       pageDetail.value.layout.editIndex
     ]
   })
-  const dragBox = (e: { moved?: { newIndex: number; oldIndex: number } }) => {
-    if (!e.moved || !pageDetail.value.layout || !currentEditStatus.value) return
+  const dragBox = (e: { newIndicies: number[]; oldIndicies: number[] }) => {
+    const { newIndicies, oldIndicies } = e
+    if (
+      !currentEditStatus.value ||
+      JSON.stringify(newIndicies) === JSON.stringify(oldIndicies)
+    )
+      return
+
     const newEditStatus = structuredClone(toRaw(currentEditStatus.value))
-    const newBoxes = newEditStatus.boxes
-    const toIndex = newBoxes.length - 1 - e.moved.newIndex
-    const fromIndex = newBoxes.length - 1 - e.moved.oldIndex
-    const element = newBoxes[fromIndex]
-    newBoxes.splice(fromIndex, 1)
-    newBoxes.splice(toIndex, 0, element)
-    newEditStatus.selectedIndex = toIndex
+    const oldBoxes = newEditStatus.boxes
+    const newBoxes: Box[] = Array.from({ length: oldBoxes.length })
+
+    for (let i = 0; i < oldIndicies.length; i++) {
+      newBoxes[newIndicies[i]] = oldBoxes[oldIndicies[i]]
+    }
+    const remaining = oldBoxes.filter((_, i) => !oldIndicies.includes(i))
+    for (let i = 0; i < newBoxes.length; i++) {
+      while (newBoxes[i] !== undefined) {
+        i++
+      }
+      if (i >= newBoxes.length) break
+      newBoxes[i] = remaining.shift()!
+    }
+
+    newEditStatus.boxes = newBoxes
     pushHistory(newEditStatus)
   }
 
@@ -184,6 +205,53 @@ export const useProofreadingStore = defineStore('proofreading', () => {
       boxes[index].text = content
     }
   }
+  const saveDraggedBox = (
+    index: number,
+    position: Pick<Box, 'xmin' | 'ymin'>,
+  ) => {
+    const box = currentEditStatus.value.boxes[index]
+    if (!box) return
+    const newEditStatus = structuredClone(toRaw(currentEditStatus.value))
+    const width = box.xmax - box.xmin
+    const height = box.ymax - box.ymin
+    newEditStatus.boxes[index] = {
+      ...box,
+      xmin: position.xmin,
+      xmax: position.xmin + width,
+      ymin: position.ymin,
+      ymax: position.ymin + height,
+    }
+    pushHistory(newEditStatus)
+  }
+  const saveResizedBox = (
+    index: number,
+    position: Omit<Box, 'text' | 'uuid'>,
+  ) => {
+    const box = currentEditStatus.value.boxes[index]
+    if (!box) return
+    const newEditStatus = structuredClone(toRaw(currentEditStatus.value))
+    newEditStatus.boxes[index] = {
+      ...box,
+      xmin: position.xmin,
+      xmax: position.xmax,
+      ymin: position.ymin,
+      ymax: position.ymax,
+    }
+    pushHistory(newEditStatus)
+  }
+  const insertNewBox = (box: Box, isNew: boolean) => {
+    if (isNew) {
+      const newEditStatus = structuredClone(toRaw(currentEditStatus.value))
+      const { boxes, selectedIndex } = newEditStatus
+      const newIndex = boxes[selectedIndex] ? selectedIndex + 1 : 0
+      boxes.splice(newIndex, 0, box)
+      pushHistory(newEditStatus)
+    } else {
+      const { boxes, selectedIndex } = currentEditStatus.value
+      const newIndex = boxes[selectedIndex] ? selectedIndex + 1 : 0
+      boxes[newIndex] = box
+    }
+  }
   const deleteBox = () => {
     const { boxes, selectedIndex } = currentEditStatus.value
     if (boxes[selectedIndex]) {
@@ -213,6 +281,21 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     }
   }
 
+  const toggleEditMode = () => {
+    if (mode.value === 'edit') {
+      mode.value = 'drag'
+    } else {
+      mode.value = 'edit'
+    }
+  }
+  const toggleAddMode = () => {
+    if (mode.value === 'add') {
+      mode.value = 'drag'
+    } else {
+      mode.value = 'add'
+    }
+  }
+
   return {
     book,
     page,
@@ -221,6 +304,7 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     totalPages,
     resetChanges,
     saveChanges,
+    resetSelected,
     selectBox,
     currentEditStatus,
     dragBox,
@@ -233,5 +317,11 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     canDeleteBox,
     replaceTxt,
     getContentToSave,
+    mode,
+    toggleEditMode,
+    toggleAddMode,
+    saveDraggedBox,
+    saveResizedBox,
+    insertNewBox,
   }
 })
