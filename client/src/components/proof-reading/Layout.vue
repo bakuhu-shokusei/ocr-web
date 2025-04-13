@@ -1,6 +1,6 @@
 <template>
   <div class="layout-boxes">
-    <div ref="boxesContainer" class="boxes-area">
+    <div ref="boxesContainer" class="boxes-area" :key="`${forceRerenderKey}`">
       <div
         v-for="box in reversedList"
         :key="box.uuid"
@@ -100,6 +100,7 @@ const reversedList = computed(() => {
     .reverse()
 })
 
+const forceRerenderKey = ref(true)
 const sortableSelected = ref<Set<number>>(new Set())
 let sortable: Sortable
 const setUpSortable = () => {
@@ -144,6 +145,7 @@ const setUpSortable = () => {
 const resetSortable = () => {
   sortableSelected.value = new Set()
   sortable?.destroy()
+  forceRerenderKey.value = !forceRerenderKey.value
   nextTick(setUpSortable)
 }
 onMounted(() => {
