@@ -51,22 +51,24 @@
       </div>
     </div>
     <div class="image-controls">
-      <div class="control-pannel">
-        <Button
-          :icon="h(DragOutlined)"
-          :type="mode === 'drag' ? 'primary' : 'default'"
-          @click="proofreadingStore.setMode('drag')"
-        />
-        <Button
-          :icon="h(EditOutlined)"
-          :type="mode === 'edit' ? 'primary' : 'default'"
-          @click="proofreadingStore.setMode('edit')"
-        />
-        <Button
-          :icon="h(PlusOutlined)"
-          :type="mode === 'add' ? 'primary' : 'default'"
-          @click="proofreadingStore.setMode('add')"
-        />
+      <div class="pannel-container">
+        <div class="control-pannel">
+          <Button
+            :icon="h(DragOutlined)"
+            :type="mode === 'drag' ? 'primary' : 'default'"
+            @click="proofreadingStore.setMode('drag')"
+          />
+          <Button
+            :icon="h(EditOutlined)"
+            :type="mode === 'edit' ? 'primary' : 'default'"
+            @click="proofreadingStore.setMode('edit')"
+          />
+          <Button
+            :icon="h(PlusOutlined)"
+            :type="mode === 'add' ? 'primary' : 'default'"
+            @click="proofreadingStore.setMode('add')"
+          />
+        </div>
       </div>
     </div>
     <div class="controls">
@@ -271,7 +273,7 @@ p {
 }
 
 .image-container {
-  margin: 0 12px;
+  padding: 0 12px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: max-content minmax(0, 1fr) 0 max-content;
@@ -300,6 +302,7 @@ p {
     display: flex;
     align-items: center;
     padding: 8px 0;
+    overflow: hidden;
     .controls-text {
       color: var(--text-main);
       font-family: var(--font-japanese);
@@ -407,17 +410,22 @@ p {
 
   .image-controls {
     position: relative;
-    .control-pannel {
+    .pannel-container {
       position: absolute;
       bottom: 16px;
-      left: 50%;
-      transform: translate(-50%);
+      left: 0;
+      right: 0;
       display: flex;
-      background-color: #fff;
-      padding: 8px 16px;
-      border-radius: 16px;
-      gap: 8px;
-      box-shadow: rgba(99, 99, 99, 0.2) 0px 2px 8px 0px;
+      justify-content: center;
+      overflow: hidden;
+      .control-pannel {
+        display: flex;
+        background-color: #fff;
+        padding: 8px 16px;
+        border-radius: 16px;
+        gap: 8px;
+        box-shadow: rgba(99, 99, 99, 0.2) 0px 2px 8px 0px;
+      }
     }
   }
 }
