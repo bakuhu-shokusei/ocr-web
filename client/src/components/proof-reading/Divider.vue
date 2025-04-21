@@ -1,5 +1,11 @@
 <template>
-  <div class="divider" :class="direction" @mousedown="mouseDown" tabindex="0">
+  <div
+    class="divider"
+    :class="direction"
+    @mousedown="onMouseDown"
+    @touchstart="onTouchStart"
+    tabindex="0"
+  >
     <div class="inner">
       <svg
         width="16px"
@@ -14,6 +20,8 @@
 </template>
 
 <script setup lang="ts">
+import { createDragHandler } from '../../utils/drag'
+
 interface Delata {
   deltaX: number
   deltaY: number
@@ -23,20 +31,16 @@ const props = defineProps<{
   onMouseDown: () => (d: Delata) => void
 }>()
 
-const mouseDown = (e: MouseEvent) => {
+const { onMouseDown, onTouchStart } = createDragHandler((initPosition) => {
   const cb = props.onMouseDown()
-  const prevX = e.clientX
-  const prevY = e.clientY
-  function onMove(e: MouseEvent) {
-    cb({ deltaX: e.clientX - prevX, deltaY: e.clientY - prevY })
+  const prevX = initPosition.clientX
+  const prevY = initPosition.clientY
+  return {
+    onMove(p) {
+      cb({ deltaX: p.clientX - prevX, deltaY: p.clientY - prevY })
+    },
   }
-  function onEnd() {
-    document.removeEventListener('mousemove', onMove)
-    document.removeEventListener('mouseup', onEnd)
-  }
-  document.addEventListener('mousemove', onMove)
-  document.addEventListener('mouseup', onEnd)
-}
+})
 </script>
 
 <style lang="scss" scoped>

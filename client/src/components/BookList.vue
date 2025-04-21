@@ -137,6 +137,17 @@ const goToFirstPageOfBook = (book: string) => {
         a {
           color: inherit;
         }
+        @media (max-width: 480px) {
+          .anticon {
+            padding: 4px;
+          }
+        }
+        @media (max-width: 400px) {
+          font-size: 16px;
+          .anticon {
+            padding: 4px;
+          }
+        }
       }
     }
   }

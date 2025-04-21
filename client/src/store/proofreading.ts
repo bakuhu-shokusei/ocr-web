@@ -246,10 +246,12 @@ export const useProofreadingStore = defineStore('proofreading', () => {
       const newIndex = boxes[selectedIndex] ? selectedIndex + 1 : 0
       boxes.splice(newIndex, 0, box)
       pushHistory(newEditStatus)
+      return newIndex
     } else {
       const { boxes, selectedIndex } = currentEditStatus.value
       const newIndex = boxes[selectedIndex] ? selectedIndex + 1 : 0
       boxes[newIndex] = box
+      return newIndex
     }
   }
   const deleteBox = () => {
@@ -281,19 +283,8 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     }
   }
 
-  const toggleEditMode = () => {
-    if (mode.value === 'edit') {
-      mode.value = 'drag'
-    } else {
-      mode.value = 'edit'
-    }
-  }
-  const toggleAddMode = () => {
-    if (mode.value === 'add') {
-      mode.value = 'drag'
-    } else {
-      mode.value = 'add'
-    }
+  const setMode = (m: Mode) => {
+    mode.value = m
   }
 
   return {
@@ -318,8 +309,7 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     replaceTxt,
     getContentToSave,
     mode,
-    toggleEditMode,
-    toggleAddMode,
+    setMode,
     saveDraggedBox,
     saveResizedBox,
     insertNewBox,

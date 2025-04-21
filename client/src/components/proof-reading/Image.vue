@@ -24,7 +24,8 @@
           'fit-height': fitWidthOrHeight === 'height',
           [`scale-level-${zoomLevel.toFixed(1).replace('.', '-')}`]: true,
         }"
-        @mousedown="addNewBox"
+        @mousedown="addNewBoxMouseDown"
+        @touchstart="addNewBoxTouchStart"
       >
         <div
           v-for="({ box, selected, style }, idx) in boxesStyle"
@@ -49,6 +50,25 @@
         </VueDraggableResizable>
       </div>
     </div>
+    <div class="image-controls">
+      <div class="control-pannel">
+        <Button
+          :icon="h(DragOutlined)"
+          :type="mode === 'drag' ? 'primary' : 'default'"
+          @click="proofreadingStore.setMode('drag')"
+        />
+        <Button
+          :icon="h(EditOutlined)"
+          :type="mode === 'edit' ? 'primary' : 'default'"
+          @click="proofreadingStore.setMode('edit')"
+        />
+        <Button
+          :icon="h(PlusOutlined)"
+          :type="mode === 'add' ? 'primary' : 'default'"
+          @click="proofreadingStore.setMode('add')"
+        />
+      </div>
+    </div>
     <div class="controls">
       <div class="controls-text">拡大倍率</div>
       <Slider
@@ -66,13 +86,15 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, h } from 'vue'
 import { useStorage, useElementSize } from '@vueuse/core'
-import { Slider } from 'ant-design-vue'
+import { Slider, Button } from 'ant-design-vue'
+import { DragOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { storeToRefs } from 'pinia'
 import VueDraggableResizable from 'vue-draggable-resizable'
 import { useProofreadingStore } from '../../store/proofreading'
 import { generateUUID, type Box } from '../../utils'
+import { createDragHandler } from '../../utils/drag'
 
 const proofreadingStore = useProofreadingStore()
 const { pageDetail, currentEditStatus, mode } = storeToRefs(proofreadingStore)
@@ -158,35 +180,39 @@ const boxBeingEdited = computed(() => {
   return { draggableOptions, index: selectedIndex, onDrag, onResize }
 })
 
-const addNewBox = (e: MouseEvent) => {
-  if (mode.value !== 'add') return
+const { onMouseDown: addNewBoxMouseDown, onTouchStart: addNewBoxTouchStart } =
+  createDragHandler((initPosition) => {
+    if (mode.value !== 'add') return
 
-  const container = e.currentTarget as HTMLElement
-  if (!container) return
-  const [w0, h0] = [container.clientWidth, container.clientHeight]
-  const { left: l0, top: t0 } = container.getBoundingClientRect()
-  const [prevX, prevY] = [e.clientX - l0, e.clientY - t0]
-  let isNew = true
-  function onMove(e: MouseEvent) {
-    const [newX, newY] = [e.clientX - l0, e.clientY - t0]
-    const box: Box = {
-      uuid: generateUUID(),
-      xmin: Math.min(prevX, newX) / w0,
-      ymin: Math.min(prevY, newY) / h0,
-      xmax: Math.max(prevX, newX) / w0,
-      ymax: Math.max(prevY, newY) / h0,
-      text: '',
+    const container = actualImage.value
+    if (!container) return
+    const [w0, h0] = [container.clientWidth, container.clientHeight]
+    const { left: l0, top: t0 } = container.getBoundingClientRect()
+    const [prevX, prevY] = [
+      initPosition.clientX - l0,
+      initPosition.clientY - t0,
+    ]
+    let isNew = true
+    let newIndex: number
+    return {
+      onMove(p) {
+        const [newX, newY] = [p.clientX - l0, p.clientY - t0]
+        const box: Box = {
+          uuid: generateUUID(),
+          xmin: Math.min(prevX, newX) / w0,
+          ymin: Math.min(prevY, newY) / h0,
+          xmax: Math.max(prevX, newX) / w0,
+          ymax: Math.max(prevY, newY) / h0,
+          text: '',
+        }
+        newIndex = proofreadingStore.insertNewBox(box, isNew)
+        isNew = false
+      },
+      onFinish() {
+        proofreadingStore.selectBox(newIndex)
+      },
     }
-    proofreadingStore.insertNewBox(box, isNew)
-    isNew = false
-  }
-  function onEnd() {
-    document.removeEventListener('mousemove', onMove)
-    document.removeEventListener('mouseup', onEnd)
-  }
-  document.addEventListener('mousemove', onMove)
-  document.addEventListener('mouseup', onEnd)
-}
+  })
 
 const dragToMove = (e: MouseEvent) => {
   if (mode.value !== 'drag') return
@@ -248,7 +274,7 @@ p {
   padding: 0 12px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: max-content minmax(0, 1fr) max-content;
+  grid-template-rows: max-content minmax(0, 1fr) 0 max-content;
 
   &.is-drag-mode {
     .image-container-body {
@@ -266,6 +292,7 @@ p {
     white-space: nowrap;
     align-items: center;
     margin-right: auto;
+    width: 100%;
   }
 
   .controls {
@@ -374,6 +401,22 @@ p {
         color: rgba(var(--primary-blue-rgb), 0.6);
         font-size: 12px;
       }
+    }
+  }
+
+  .image-controls {
+    position: relative;
+    .control-pannel {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translate(-50%);
+      display: flex;
+      background-color: #fff;
+      padding: 8px 16px;
+      border-radius: 16px;
+      gap: 8px;
+      box-shadow: rgba(99, 99, 99, 0.2) 0px 2px 8px 0px;
     }
   }
 }

@@ -6,6 +6,8 @@
       :default-page-size="1"
       :show-size-changer="false"
       show-quick-jumper
+      :simple="width <= 680"
+      class="pagination"
       @change="onPageChange($event)"
     />
     <Button
@@ -14,19 +16,18 @@
     >
       リセット
     </Button>
-    <Button :icon="h(SaveOutlined)" type="primary" @click="savePageInfo">
-      保存
-    </Button>
+    <Button type="primary" @click="savePageInfo"> 保存 </Button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { h } from 'vue'
 import { Pagination, Button, message } from 'ant-design-vue'
-import { SaveOutlined } from '@ant-design/icons-vue'
 import { useProofreadingStore } from '../../store/proofreading'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
+import { useWindowSize } from '@vueuse/core'
+
+const { width } = useWindowSize()
 
 const proofreadingStore = useProofreadingStore()
 const { book, saveChanges, resetChanges } = proofreadingStore
@@ -44,6 +45,15 @@ const savePageInfo = async () => {
 </script>
 
 <style lang="scss" scoped>
+.pagination {
+  white-space: pre;
+  :deep(.ant-pagination-simple-pager) {
+    input {
+      padding: 0;
+    }
+  }
+}
+
 .controls {
   padding: 12px;
   border-top: 1px solid rgba(5, 5, 5, 0.06);

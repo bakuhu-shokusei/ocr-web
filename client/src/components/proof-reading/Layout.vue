@@ -38,22 +38,10 @@
         @click="proofreadingStore.deleteBox"
       />
       <Button
-        :icon="h(EditOutlined)"
-        :type="mode === 'edit' ? 'primary' : 'default'"
-        @click="proofreadingStore.toggleEditMode"
-      />
-      <Button
-        :icon="h(PlusOutlined)"
-        :type="mode === 'add' ? 'primary' : 'default'"
-        @click="proofreadingStore.toggleAddMode"
-      />
-      <Button
         :icon="h(ArrowDownOutlined)"
         @click="proofreadingStore.replaceTxt"
         :style="{ marginLeft: 'auto' }"
-      >
-        確定
-      </Button>
+      />
     </div>
   </div>
 </template>
@@ -67,13 +55,11 @@ import {
   RedoOutlined,
   DeleteOutlined,
   ArrowDownOutlined,
-  EditOutlined,
-  PlusOutlined,
 } from '@ant-design/icons-vue'
 import { useProofreadingStore } from '../../store/proofreading'
 
 const proofreadingStore = useProofreadingStore()
-const { currentEditStatus, canRedo, canUndo, canDeleteBox, mode } =
+const { currentEditStatus, canRedo, canUndo, canDeleteBox } =
   storeToRefs(proofreadingStore)
 
 const boxesContainer = ref<HTMLDivElement>()
