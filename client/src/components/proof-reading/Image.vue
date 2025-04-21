@@ -412,7 +412,8 @@ p {
     position: relative;
     .pannel-container {
       position: absolute;
-      bottom: 16px;
+      bottom: 8px;
+      padding: 8px 0;
       left: 0;
       right: 0;
       display: flex;
