@@ -271,10 +271,11 @@ p {
 }
 
 .image-container {
-  padding: 0 12px;
+  margin: 0 12px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: max-content minmax(0, 1fr) 0 max-content;
+  overflow: hidden;
 
   &.is-drag-mode {
     .image-container-body {

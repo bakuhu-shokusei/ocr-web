@@ -1,7 +1,7 @@
 <template>
   <div>
     <div v-if="pageDetail.imageFileName" class="content">
-      <div class="display-area" :class="{ 'has-layout': pageDetail.layout }">
+      <div class="display-area">
         <Image />
         <Divider :onMouseDown="verticalResize" direction="vertical" />
         <Layout v-if="pageDetail.layout" />
@@ -44,7 +44,7 @@ const verticalResize = () => {
   const containerWidth = document.querySelector('.display-area')?.clientWidth
   return (delta: { deltaX: number }) => {
     if (!imageWidth || !containerWidth) return
-    const MIN_SPACE = 160
+    const MIN_SPACE = 0
     const min = MIN_SPACE / containerWidth!
     const max = 1 - min
     const target = (imageWidth + delta.deltaX) / containerWidth
@@ -95,45 +95,34 @@ const horizontalResize = () => {
   grid-template-rows: minmax(0, 1fr) auto;
   .display-area {
     flex: 1;
-    &:not(.has-layout) {
-      display: flex;
-      :deep(.image-container) {
-        width: v-bind(imageWidthPercentage);
-      }
-      :deep(.text-container) {
-        flex: 1;
-      }
+    display: grid;
+    grid-template-columns:
+      minmax(0, v-bind(imageWidthPercentage))
+      16px
+      minmax(0, 1fr);
+    grid-template-rows:
+      minmax(0, v-bind(layoutHeightPercentage))
+      16px
+      minmax(0, 1fr);
+    :deep(.image-container) {
+      grid-column: 1 / 2;
+      grid-row: 1 / 4;
     }
-    &.has-layout {
-      display: grid;
-      grid-template-columns:
-        minmax(0, v-bind(imageWidthPercentage))
-        16px
-        minmax(0, 1fr);
-      grid-template-rows:
-        minmax(0, v-bind(layoutHeightPercentage))
-        16px
-        minmax(0, 1fr);
-      :deep(.image-container) {
-        grid-column: 1 / 2;
-        grid-row: 1 / 4;
-      }
-      :deep(.text-container) {
-        grid-column: 3 / 4;
-        grid-row: 3 / 4;
-      }
-      :deep(.divider.vertical) {
-        grid-column: 2 / 3;
-        grid-row: 1 / 4;
-      }
-      :deep(.divider.horizontal) {
-        grid-column: 3 / 4;
-        grid-row: 2 / 3;
-      }
-      :deep(.layout-boxes) {
-        grid-column: 3 / 4;
-        grid-row: 1 / 2;
-      }
+    :deep(.text-container) {
+      grid-column: 3 / 4;
+      grid-row: 3 / 4;
+    }
+    :deep(.divider.vertical) {
+      grid-column: 2 / 3;
+      grid-row: 1 / 4;
+    }
+    :deep(.divider.horizontal) {
+      grid-column: 3 / 4;
+      grid-row: 2 / 3;
+    }
+    :deep(.layout-boxes) {
+      grid-column: 3 / 4;
+      grid-row: 1 / 2;
     }
   }
 }
