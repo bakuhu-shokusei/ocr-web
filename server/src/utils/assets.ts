@@ -1,17 +1,22 @@
-import { resolve, parse } from 'node:path'
+import { resolve, posix, parse } from 'node:path'
 import {
   readdirSync,
-  openAsBlob,
-  writeFileSync,
   existsSync,
   readFileSync,
   rmSync,
   mkdirSync,
 } from 'node:fs'
-import { ASSETS_PATH } from '../env'
-import { logger } from './logger'
-
-const log = (s: string) => logger.info(`[assets] ${s}`)
+import multer from 'multer'
+import { ASSETS_PATH, CLOUDFRONT_PATH } from '../env'
+import {
+  getBucketStructure,
+  uploadDirectoryToS3,
+  uploadJsonToS3,
+  BUCKET_NAME,
+  DirectoryTree,
+  deleteS3Folder,
+  createSignedUrl,
+} from './s3'
 
 interface Page {
   imgPath: string
@@ -22,159 +27,80 @@ type Books = Record<string, Page[]>
 
 createDirIfNotExist(resolve(ASSETS_PATH!))
 
-function getUsers(): string[] {
-  const userNames = readdirSync(resolve(ASSETS_PATH!), {
-    withFileTypes: true,
-  }).filter((i) => i.isDirectory())
-  return userNames.map((i) => i.name)
-}
-function getImageName(userName: string, bookName: string, page: string) {
-  const innerFiles = readdirSync(
-    resolve(ASSETS_PATH!, userName, bookName, page),
-  )
-  return innerFiles.find((i) => i.startsWith('img'))!
-}
 function createDirIfNotExist(path: string) {
   if (!existsSync(path)) {
     mkdirSync(path, { recursive: true })
   }
 }
-export function getAssets(userName: string): Books {
-  createDirIfNotExist(resolve(ASSETS_PATH!, userName))
-  const bookNames = readdirSync(resolve(ASSETS_PATH!, userName), {
-    withFileTypes: true,
-  }).filter((i) => i.isDirectory())
+export async function getAssets(userName: string): Promise<Books> {
+  const tree = await getBucketStructure(BUCKET_NAME, userName)
+  const bookNames = Object.keys(tree)
   const books: Books = {}
-  bookNames
-    .map((i) => i.name)
-    .forEach((bookName) => {
-      const pages = readdirSync(resolve(ASSETS_PATH!, userName, bookName), {
-        withFileTypes: true,
-      })
-        .filter((i) => i.isDirectory())
-        .map((i) => i.name)
-      sortStrings(pages)
-      pages.forEach((page) => {
-        const innerFiles = readdirSync(
-          resolve(ASSETS_PATH!, userName, bookName, page),
-        )
-        books[bookName] = books[bookName] || []
-        const getFileUrl = (fileName: string) => {
-          let p = ['', 'assets', userName, bookName, page, fileName].join('/')
-          return encodeURI(p)
-        }
-        const imgPath = getFileUrl(getImageName(userName, bookName, page))
-        const ocrPath = innerFiles.includes('ocr.json')
-          ? getFileUrl('ocr.json')
-          : undefined
+  bookNames.forEach((bookName) => {
+    books[bookName] = books[bookName] || []
 
-        books[bookName].push({
-          imgPath,
-          pageName: page,
-          ocrPath,
-        })
+    const pages = Object.keys(tree[bookName])
+    sortStrings(pages)
+    pages.forEach((page) => {
+      const files = (tree[bookName] as DirectoryTree)[page] as DirectoryTree
+      const innerFiles = Object.keys(files)
+      const imgName = innerFiles.find((i) => i.startsWith('img'))!
+      const imgPath = files[imgName] as string
+      const ocrPath = files['ocr.json'] as string
+
+      books[bookName].push({
+        imgPath: createSignedUrl(CLOUDFRONT_PATH + imgPath),
+        pageName: page,
+        ocrPath,
       })
     })
+  })
   return books
 }
 
-export function saveOCRFile(
+const BUFFER_PATH = resolve(process.cwd(), 'images_buffer')
+
+const storage = multer.diskStorage({
+  destination(req, file, cb) {
+    const userName: string = (req as any).currentUser.userName
+    const { bookName } = req.body
+    const { name } = parse(decodeURIComponent(file.originalname))
+    const path = resolve(BUFFER_PATH, userName, bookName, name)
+    if (!existsSync(path)) {
+      mkdirSync(path, { recursive: true })
+    }
+    cb(null, path)
+  },
+  filename(req, file, cb) {
+    const { ext } = parse(decodeURIComponent(file.originalname))
+    cb(null, `img${ext}`)
+  },
+})
+export const multerUpload = multer({
+  storage,
+})
+
+export async function uploadImages(userName: string, bookName: string) {
+  const bookPath = resolve(BUFFER_PATH, userName, bookName)
+  await uploadDirectoryToS3(
+    bookPath,
+    BUCKET_NAME,
+    posix.join(userName, bookName),
+  )
+  rmSync(bookPath, { recursive: true })
+}
+
+export async function saveOCRFile(
   userName: string,
   bookName: string,
   page: string,
   data: any,
 ) {
-  const base = resolve(ASSETS_PATH!, userName, bookName, page)
-  if (!existsSync(base)) return
-  const path = resolve(base, 'ocr.json')
-  writeFileSync(path, JSON.stringify(data))
-}
-
-async function uploadFiles(
-  userName: string,
-  bookName: string,
-  pages: string[],
-  remoteHost: string,
-) {
-  const files = await Promise.all(
-    pages.map((page) =>
-      openAsBlob(
-        resolve(
-          ASSETS_PATH!,
-          userName,
-          bookName,
-          page,
-          getImageName(userName, bookName, page),
-        ),
-      ),
-    ),
+  await uploadJsonToS3(
+    data,
+    BUCKET_NAME,
+    posix.join(userName, bookName, page, 'ocr.json'),
   )
-  const formData = new FormData()
-
-  formData.append('bookName', bookName)
-  files.forEach((file, idx) => {
-    const { ext } = parse(getImageName(userName, bookName, pages[idx]))
-    formData.append('image', file, `${idx}${ext}`)
-  })
-  log('【WAKUWAKU】upload images')
-  const response = await fetch(`http://${remoteHost}:3000/start-ocr`, {
-    method: 'POST',
-    body: formData,
-  })
-  const data = await response.json()
-  if (data.status !== 'ok') {
-    throw 'ocr api failed'
-  }
-  log('【HAPPY】got ocr results')
-  const result = data.result
-
-  // write json to files
-  pages.forEach((page, idx) => {
-    const jsonData = result[`${idx}.json`]
-    if (jsonData) {
-      saveOCRFile(userName, bookName, page, jsonData)
-    }
-  })
-}
-
-export function hasNoneDoneImages(): boolean {
-  const users = getUsers()
-  for (const user of users) {
-    const books = getAssets(user)
-    const pagesByBook = Object.values(books)
-    const hasUnfinished = pagesByBook.some((pages) => {
-      return pages.some((page) => !page.ocrPath)
-    })
-    if (hasUnfinished) return true
-  }
-  return false
-}
-
-export function getNextToDo(): (remoteHost: string) => Promise<void> {
-  const users = getUsers()
-  for (const user of users) {
-    const books = getAssets(user)
-    const bookNames = Object.keys(books)
-    const unfinishedBook = bookNames.find((bn) => {
-      return books[bn].some((page) => !page.ocrPath)
-    })
-    if (unfinishedBook) {
-      const unfinishedPages = books[unfinishedBook]
-        .filter((page) => !page.ocrPath)
-        // do not send too many at one time
-        .slice(0, 20)
-      return async (remoteHost) => {
-        log(`found unfinished book: ${unfinishedBook}`)
-        await uploadFiles(
-          user,
-          unfinishedBook,
-          unfinishedPages.map((i) => i.pageName),
-          remoteHost,
-        )
-      }
-    }
-  }
-  return async () => {}
 }
 
 function sortStrings(array: string[]) {
@@ -205,14 +131,8 @@ export function getBookAsText(userName: string, bookName: string): string {
     .join('\n\n')
 }
 
-export function deleteBook(userName: string, bookName: string) {
-  const path = resolve(ASSETS_PATH!, userName, bookName)
-  if (existsSync(path)) {
-    rmSync(path, {
-      recursive: true,
-      force: true,
-    })
-  }
+export async function deleteBook(userName: string, bookName: string) {
+  await deleteS3Folder(BUCKET_NAME, posix.join(userName, bookName))
 }
 
 interface SearchResult {

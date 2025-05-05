@@ -2,7 +2,14 @@ import { createHash } from 'node:crypto'
 import * as dotenv from 'dotenv'
 dotenv.config({ debug: true })
 
-const { USERS, PWS, ASSETS_PATH, API_KEY } = process.env
+const {
+  USERS,
+  PWS,
+  ASSETS_PATH,
+  CLOUDFRONT_PATH,
+  CLOUDFRONT_KEYPAIR_ID,
+  CLOUDFRONT_PRIVATE_KEY,
+} = process.env
 
 class Users {
   public users: User[]
@@ -41,4 +48,10 @@ class User {
 
 export const users = new Users()
 
-export { Users, ASSETS_PATH, API_KEY }
+export {
+  Users,
+  ASSETS_PATH,
+  CLOUDFRONT_PATH,
+  CLOUDFRONT_KEYPAIR_ID,
+  CLOUDFRONT_PRIVATE_KEY,
+}

@@ -1,0 +1,31 @@
+{
+  "name": "ocr-runner",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "tsup"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-ec2": "^3.800.0",
+    "@aws-sdk/client-s3": "^3.802.0",
+    "axios": "^1.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsup": "^8.3.6",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  },
+  "tsup": {
+    "entry": [
+      "src"
+    ],
+    "splitting": false,
+    "sourcemap": true,
+    "clean": true
+  }
+}
