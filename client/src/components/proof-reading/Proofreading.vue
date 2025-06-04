@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div v-if="pageDetail.imageFileName" class="content">
+    <div v-if="pageDetail.imageUrl" class="content">
       <div class="display-area">
         <Image />
         <Divider :onMouseDown="verticalResize" direction="vertical" />

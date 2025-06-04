@@ -1,47 +1,37 @@
 <template>
   <div>
     <div class="list">
-      <Upload />
+      <Breadcrumb />
+      <!-- <Upload /> -->
       <BookList />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, onUnmounted, watch } from 'vue'
-import Upload from '../components/Upload.vue'
+import { watch } from 'vue'
+import Breadcrumb from '../components/Breadcrumb.vue'
+// import Upload from '../components/Upload.vue'
 import BookList from '../components/BookList.vue'
 import { useAssetsStore } from '../store/assets'
+import { useRoute } from 'vue-router'
 
 const assetsStore = useAssetsStore()
+const route = useRoute()
 
-onBeforeMount(() => {
-  assetsStore.getAssets()
-})
-
-let timer: number
-const INTERVAL = 1000 * 30
 watch(
-  () => assetsStore.hasUnfinished,
-  (hasUnfinished) => {
-    if (hasUnfinished) {
-      clearInterval(timer)
-      timer = setInterval(assetsStore.getAssets, INTERVAL)
-    } else {
-      clearInterval(timer)
-    }
+  () => route.params.path,
+  () => {
+    assetsStore.getFolders()
   },
   { immediate: true },
 )
-onUnmounted(() => {
-  clearInterval(timer)
-})
 </script>
 
 <style scoped>
 .list {
   max-width: 800px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 1px 16px;
 }
 </style>

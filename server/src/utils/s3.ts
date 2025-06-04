@@ -2,214 +2,259 @@ import {
   S3Client,
   ListObjectsV2CommandOutput,
   ListObjectsV2Command,
-  PutObjectCommandInput,
+  GetObjectCommand,
   PutObjectCommand,
   DeleteObjectsCommand,
+  HeadObjectCommand,
   _Object,
 } from '@aws-sdk/client-s3'
-import { Upload } from '@aws-sdk/lib-storage'
 import { getSignedUrl } from '@aws-sdk/cloudfront-signer'
-import fs from 'fs'
-import path from 'path'
-import mime from 'mime'
-import { CLOUDFRONT_KEYPAIR_ID, CLOUDFRONT_PRIVATE_KEY } from '@/env'
+import {
+  CLOUDFRONT_KEYPAIR_ID,
+  CLOUDFRONT_PATH,
+  CLOUDFRONT_PRIVATE_KEY,
+} from '@/env'
 
 const REGION = 'ap-northeast-1'
 export const BUCKET_NAME = 'ocr-assets'
 
 const s3 = new S3Client({ region: REGION })
 
-export type DirectoryTree = {
-  [name: string]: DirectoryTree | string
+type SubDirItem = {
+  path: string
+  info: DirectoryInfo
 }
 
-async function listAllKeys(
-  bucketName: string,
-  prefix?: string,
-): Promise<string[]> {
-  let continuationToken: string | undefined = undefined
-  const allKeys: string[] = []
+type DirectoryInfo =
+  | {
+      type: 'book'
+      imagePath: string
+      name: string
+    }
+  | {
+      type: 'invalid'
+    }
+  | {
+      type: 'directory'
+      name: string
+    }
+
+async function listSubdirectories(prefix: string): Promise<string[]> {
+  const subdirectories = new Set<string>()
+  let continuationToken: string | undefined
 
   do {
-    const command = new ListObjectsV2Command({
-      Bucket: bucketName,
-      ContinuationToken: continuationToken,
+    const params = {
+      Bucket: BUCKET_NAME,
       Prefix: prefix,
-    })
+      Delimiter: '/',
+      ContinuationToken: continuationToken,
+    }
 
-    const response: ListObjectsV2CommandOutput = await s3.send(command)
+    try {
+      const command = new ListObjectsV2Command(params)
+      const response: ListObjectsV2CommandOutput = await s3.send(command)
 
-    const keys = response.Contents?.map((obj) => obj.Key!).filter(Boolean) ?? []
-    allKeys.push(...keys)
+      // Add common prefixes (subdirectories) to our set
+      if (response.CommonPrefixes) {
+        response.CommonPrefixes.forEach((commonPrefix) => {
+          if (commonPrefix.Prefix) {
+            subdirectories.add(commonPrefix.Prefix)
+          }
+        })
+      }
 
-    continuationToken = response.IsTruncated
-      ? response.NextContinuationToken
-      : undefined
+      continuationToken = response.NextContinuationToken
+    } catch (error) {
+      console.error('Error listing objects:', error)
+      throw error
+    }
   } while (continuationToken)
 
-  return allKeys
+  const result = Array.from(subdirectories)
+  sortStrings(result)
+  return result
 }
 
-/**
- * Build a nested directory tree structure from flat S3 keys
- */
-function buildDirectoryTree(
-  keys: string[],
-  prefixToTrim: string = '',
-): DirectoryTree {
-  const tree: DirectoryTree = {}
-  const prefixLength = prefixToTrim.length
+export async function listSubdirectoriesWithoutUserName(
+  prefix: string,
+): Promise<string[]> {
+  const dirs = await listSubdirectories(prefix)
+  return dirs.map((i) => removeUserNameFromPath(i))
+}
 
-  for (const key of keys) {
-    const trimmedKey = key.slice(prefixLength) // Make keys relative to the folder
-    const parts = trimmedKey.split('/').filter(Boolean)
-    let current: DirectoryTree = tree
+function removeUserNameFromPath(dir: string) {
+  // remove user name at the beginning
+  const tmp = dir.split('/')
+  tmp.shift()
+  return tmp.join('/')
+}
 
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i]
-      const isLeaf = i === parts.length - 1
+export async function listSubdirectoriesWithInfo(
+  prefix: string = '',
+): Promise<SubDirItem[]> {
+  const subDirs = await listSubdirectories(prefix)
+  const allInfo = await Promise.all(subDirs.map((dir) => getDirectoryInfo(dir)))
+  const allInfoWithDir = allInfo.map((info, idx) => ({
+    info,
+    dir: subDirs[idx],
+  }))
+  const items: SubDirItem[] = []
+  for (const { info, dir } of allInfoWithDir) {
+    if (info.type === 'invalid') continue
 
-      if (!current[part]) {
-        current[part] = isLeaf ? key : {}
+    const path = removeUserNameFromPath(dir)
+
+    items.push({ path, info })
+  }
+  return items
+}
+
+async function getDirectoryInfo(prefix: string): Promise<DirectoryInfo> {
+  const name = prefix.replace(/\/$/, '').split('/').pop() || ''
+  // Ensure prefix ends with '/' for directory check
+  const normalizedPrefix = prefix.endsWith('/') ? prefix : prefix + '/'
+
+  try {
+    // Get just the first subdirectory
+    const firstSubdir = await getFirstSubdirectory(normalizedPrefix)
+
+    if (!firstSubdir) {
+      return { type: 'invalid' }
+    }
+
+    const imagePath = normalizedPrefix + firstSubdir + '/img.avif'
+
+    if (await fileExists(imagePath)) {
+      return {
+        type: 'book',
+        imagePath: createSignedUrl(CLOUDFRONT_PATH + imagePath),
+        name,
       }
+    } else {
+      return { type: 'directory', name }
+    }
+  } catch (error) {
+    console.error('Error checking directory:', error)
+    return { type: 'invalid' }
+  }
+}
 
-      if (!isLeaf) {
-        current = current[part] as DirectoryTree
-      }
+async function getFirstSubdirectory(prefix: string): Promise<string | null> {
+  const params = {
+    Bucket: BUCKET_NAME,
+    Prefix: prefix,
+    Delimiter: '/',
+    MaxKeys: 1,
+  }
+
+  const command = new ListObjectsV2Command(params)
+  const response = await s3.send(command)
+
+  if (response.CommonPrefixes && response.CommonPrefixes.length > 0) {
+    const firstPrefix = response.CommonPrefixes[0].Prefix
+    if (firstPrefix) {
+      const pathWithoutPrefix = firstPrefix.substring(prefix.length)
+      return pathWithoutPrefix.replace(/\/$/, '')
     }
   }
 
-  return tree
+  return null
 }
 
-/**
- * Get the full directory structure of the S3 bucket
- */
-export async function getBucketStructure(
-  bucketName: string,
-  folderPrefix: string = '',
-): Promise<DirectoryTree> {
-  const normalizedPrefix = folderPrefix.replace(/^\/|\/$/g, '') + '/'
-  const keys = await listAllKeys(bucketName, normalizedPrefix)
-  const tree = buildDirectoryTree(keys, normalizedPrefix)
-  return tree
-}
-
-// ;(async () => {
-//   const tree = await getBucketStructure(BUCKET_NAME, 'ocr-user')
-//   console.log(JSON.stringify(tree, null, 2))
-// })()
-
-/**
- * Recursively get all files in a directory
- */
-function getAllFiles(dirPath: string): string[] {
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true })
-  const files = entries.flatMap((entry) => {
-    const fullPath = path.join(dirPath, entry.name)
-    return entry.isDirectory() ? getAllFiles(fullPath) : [fullPath]
-  })
-  return files
-}
-
-/**
- * Upload a local directory to an S3 bucket
- */
-export async function uploadDirectoryToS3(
-  localDir: string,
-  bucketName: string,
-  s3Prefix: string = '',
-): Promise<void> {
-  const files = getAllFiles(localDir)
-
-  for (const filePath of files) {
-    // Get relative path to preserve folder structure in S3
-    const relativePath = path.relative(localDir, filePath).replace(/\\/g, '/') // Windows fix
-    const s3Key = path.posix.join(s3Prefix, relativePath)
-
-    const fileStream = fs.createReadStream(filePath)
-
-    // Detect MIME type
-    const contentType = mime.getType(filePath) || 'application/octet-stream'
-
-    const uploadParams: PutObjectCommandInput = {
-      Bucket: bucketName,
-      Key: s3Key,
-      Body: fileStream,
-      ContentType: contentType,
-    }
-
-    const upload = new Upload({
-      client: s3,
-      params: uploadParams,
+async function fileExists(key: string): Promise<boolean> {
+  try {
+    const command = new HeadObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
     })
 
-    await upload.done()
+    await s3.send(command)
+    return true
+  } catch (error: any) {
+    if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+      return false
+    }
+    throw error // Re-throw other errors
   }
 }
 
-// ;(async () => {
-//   const localDir = path.join(__dirname, 'my-local-folder')
-//
-//   await uploadDirectoryToS3(localDir, BUCKET_NAME, 'uploads/')
-// })()
+async function getJsonFile<T = any>(key: string): Promise<T> {
+  try {
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+    })
 
-export async function uploadFileToS3(
-  localFilePath: string,
-  bucketName: string,
-  s3Key: string,
-): Promise<void> {
-  if (!fs.existsSync(localFilePath)) {
-    throw new Error(`File does not exist: ${localFilePath}`)
+    const response = await s3.send(command)
+
+    if (!response.Body) {
+      throw new Error('File body is empty')
+    }
+
+    // Convert stream to string
+    const bodyString = await response.Body.transformToString()
+
+    // Parse JSON and return
+    return JSON.parse(bodyString) as T
+  } catch (error: any) {
+    if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) {
+      throw `JSON file not found: ${key}`
+    }
+    if (error instanceof SyntaxError) {
+      throw `Invalid JSON in file: ${key}`
+    }
+    throw error
   }
-
-  const fileStream = fs.createReadStream(localFilePath)
-
-  const uploadParams: PutObjectCommandInput = {
-    Bucket: bucketName,
-    Key: s3Key,
-    Body: fileStream,
-  }
-
-  const upload = new Upload({
-    client: s3,
-    params: uploadParams,
-  })
-
-  await upload.done()
 }
 
-export async function uploadJsonToS3(
+export async function getPageInfo(bookPath: string) {
+  const imagePath = bookPath + 'img.avif'
+  const ocr = await getJsonFile(bookPath + 'ocr.json')
+  return {
+    imgPath: createSignedUrl(CLOUDFRONT_PATH + imagePath),
+    ocr,
+  }
+}
+
+export async function updateJsonFile(
+  key: string,
   jsonObject: any,
-  bucketName: string,
-  s3Key: string,
 ): Promise<void> {
-  const jsonString = JSON.stringify(jsonObject)
+  try {
+    // First check if the file exists
+    const headCommand = new HeadObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+    })
 
-  const command = new PutObjectCommand({
-    Bucket: bucketName,
-    Key: s3Key,
-    Body: jsonString,
-    ContentType: 'application/json',
-  })
+    await s3.send(headCommand)
 
-  await s3.send(command)
+    // File exists, proceed with update
+    const jsonString = JSON.stringify(jsonObject, null, 2)
+
+    const putCommand = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+      Body: jsonString,
+      ContentType: 'application/json',
+    })
+
+    await s3.send(putCommand)
+  } catch (error: any) {
+    if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+      throw new Error(`JSON file does not exist: ${key}`)
+    }
+    throw error
+  }
 }
 
-/**
- * Delete all objects under a specific prefix (folder) in an S3 bucket
- * @param bucketName - The S3 bucket name
- * @param prefix - The prefix (folder path), e.g., "my-folder/"
- */
-export async function deleteS3Folder(
-  bucketName: string,
-  prefix: string,
-): Promise<void> {
+export async function deleteS3Folder(prefix: string): Promise<void> {
   let continuationToken: string | undefined = undefined
 
   do {
     const listCommand = new ListObjectsV2Command({
-      Bucket: bucketName,
+      Bucket: BUCKET_NAME,
       Prefix: prefix,
       ContinuationToken: continuationToken,
     })
@@ -222,7 +267,7 @@ export async function deleteS3Folder(
     }
 
     const deleteParams = {
-      Bucket: bucketName,
+      Bucket: BUCKET_NAME,
       Delete: {
         Objects: objects.map((obj: _Object) => ({ Key: obj.Key! })),
         Quiet: true,
@@ -239,10 +284,27 @@ export async function deleteS3Folder(
 }
 
 export function createSignedUrl(url: string) {
+  // to update: in "bahaviors" of cloudfrond, edit
+  return url
   return getSignedUrl({
     keyPairId: CLOUDFRONT_KEYPAIR_ID!,
     privateKey: CLOUDFRONT_PRIVATE_KEY!,
     url: url,
     dateLessThan: new Date(Date.now() + 1000 * 60 * 60 * 24), // 1 day
   })
+}
+
+export async function loopEachOCRJson(
+  key: string,
+  cb: (v: { txt: string }) => void,
+) {
+  const dirs = await listSubdirectories(key)
+  for (const dir of dirs) {
+    const ocr = await getJsonFile(dir + 'ocr.json')
+    cb(ocr)
+  }
+}
+
+function sortStrings(array: string[]) {
+  array.sort((a, b) => a.localeCompare(b, 'ja-JP'))
 }

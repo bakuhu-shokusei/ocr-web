@@ -32,9 +32,6 @@ import { ref } from 'vue'
 import { message, Input, Modal, Progress } from 'ant-design-vue'
 import { UploadOutlined } from '@ant-design/icons-vue'
 import { uploadFiles } from '../api'
-import { useAssetsStore } from '../store/assets'
-
-const assetsStore = useAssetsStore()
 
 const handleChange = (e: Event) => {
   const target = e.target as HTMLInputElement
@@ -76,7 +73,6 @@ const uploadImages = async (files: File[]) => {
   }
   bookName.value = ''
   uploadPercent.value = 0
-  assetsStore.getAssets()
 }
 </script>
 

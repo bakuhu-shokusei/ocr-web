@@ -6,7 +6,7 @@
       'is-drag-mode': mode === 'drag',
     }"
   >
-    <h3 class="file-name">{{ pageDetail.imageFileName }}</h3>
+    <h3 class="file-name">{{ currentPageName }}</h3>
     <div
       ref="imgContainer"
       class="image-container-body"
@@ -99,7 +99,8 @@ import { generateUUID, type Box } from '../../utils'
 import { createDragHandler } from '../../utils/drag'
 
 const proofreadingStore = useProofreadingStore()
-const { pageDetail, currentEditStatus, mode } = storeToRefs(proofreadingStore)
+const { pageDetail, currentPageName, currentEditStatus, mode } =
+  storeToRefs(proofreadingStore)
 
 const imageOriginalSize = ref<[number, number]>([1, 1])
 watch(

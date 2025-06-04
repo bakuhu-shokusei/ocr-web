@@ -12,11 +12,15 @@ const routes = [
     children: [
       {
         path: '',
-        name: 'list',
+        redirect: { name: 'browse' },
+      },
+      {
+        path: 'browse/:path?',
+        name: 'browse',
         component: () => import('./pages/List.vue'),
       },
       {
-        path: 'proofreading/:book/:page',
+        path: 'proofreading/:path/:page',
         name: 'proofreading',
         component: () => import('./pages/Proofreading.vue'),
       },

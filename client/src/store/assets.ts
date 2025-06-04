@@ -1,34 +1,78 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { listAssets, deleteBook as apiDeleteBook } from '../api'
+import { listDirectories, deleteBook as apiDeleteBook } from '../api'
+import { useLoadingStore } from './loading'
+import { useRoute, useRouter } from 'vue-router'
 
-interface Page {
-  imgPath: string
-  pageName: string
-  ocrPath?: string
+type SubDirItem = {
+  path: string
+  info: {
+    type: 'directory'
+    name: string
+  }
 }
-type Books = Record<string, Page[]>
+
+type SubBookItem = {
+  path: string
+  info: {
+    type: 'book'
+    imagePath: string
+    name: string
+  }
+}
 
 export const useAssetsStore = defineStore('assets', () => {
-  const books = ref<Books>({})
-
-  const getAssets = async () => {
-    const assets = await listAssets()
-    if (assets) {
-      books.value = assets
-    }
-  }
-
-  const hasUnfinished = computed(() => {
-    return Object.values(books.value).some((pages) => {
-      return pages.some((p) => !p.ocrPath)
-    })
+  const route = useRoute()
+  const router = useRouter()
+  const currentPath = computed(() => {
+    if (route.name !== 'browse') return null
+    return (route.params.path as string) ?? ''
   })
 
-  const deleteBook = async (book: string) => {
-    await apiDeleteBook(book)
-    await getAssets()
+  const subDirs = ref<SubDirItem[]>([])
+  const subBookDirs = ref<SubBookItem[]>([])
+  const loadingStore = useLoadingStore()
+
+  const updatePath = async (path: string) => {
+    if (path === currentPath.value) return
+
+    // reset
+    subDirs.value = []
+    subBookDirs.value = []
+
+    await router.push({ name: 'browse', params: { path } })
   }
 
-  return { books, getAssets, hasUnfinished, deleteBook }
+  const getFolders = async () => {
+    if (currentPath.value === null) return
+
+    loadingStore.setLoading(true)
+
+    try {
+      const dirs: (SubDirItem | SubBookItem)[] = await listDirectories(
+        currentPath.value,
+      )
+      subDirs.value = dirs.filter(
+        (i) => i.info.type === 'directory',
+      ) as SubDirItem[]
+      subBookDirs.value = dirs.filter(
+        (i) => i.info.type === 'book',
+      ) as SubBookItem[]
+    } catch {}
+    loadingStore.setLoading(false)
+  }
+
+  const deleteBook = async (path: string) => {
+    await apiDeleteBook(path)
+    await getFolders()
+  }
+
+  return {
+    currentPath,
+    subDirs,
+    subBookDirs,
+    updatePath,
+    getFolders,
+    deleteBook,
+  }
 })

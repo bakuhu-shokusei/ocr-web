@@ -1,53 +1,55 @@
 <template>
   <div class="book-list">
+    <!-- 1. folders -->
     <div class="gallery">
-      <BadgeRibbon
-        v-for="book in list"
-        :key="book.bookName"
-        :text="book.badgeText"
-        :color="book.badgeColor"
+      <div
+        v-for="folder in subDirs"
+        :key="folder.path"
+        class="tile is-directory"
+        @click="assetsStore.updatePath(folder.path)"
       >
-        <div
-          class="tile"
-          :class="{ waiting: !book.ocrDone, done: book.ocrDone }"
-        >
-          <div class="title">{{ book.bookName }}</div>
-          <img :src="book.firstImg" />
-          <div v-show="book.ocrDone" class="icons">
-            <Tooltip>
-              <template #title>校正</template>
-              <EditOutlined @click="goToFirstPageOfBook(book.bookName)" />
-            </Tooltip>
-            <Tooltip>
-              <template #title>ダウンロード</template>
-              <a
-                :href="`/api/download-book?bookName=${book.bookName}`"
-                :download="`${book.bookName}.txt`"
-              >
-                <DownloadOutlined />
-              </a>
-            </Tooltip>
-            <Tooltip>
-              <template #title>削除</template>
-              <Popconfirm
-                title="Are you sure delete this book?"
-                ok-text="Yes"
-                cancel-text="No"
-                @confirm="assetsStore.deleteBook(book.bookName)"
-              >
-                <DeleteOutlined />
-              </Popconfirm>
-            </Tooltip>
-          </div>
+        <div class="title">{{ folder.info.name }}</div>
+      </div>
+    </div>
+
+    <!-- 2. books -->
+    <div class="gallery">
+      <div v-for="folder in subBookDirs" :key="folder.path" class="tile">
+        <div class="title">{{ folder.info.name }}</div>
+        <img :src="folder.info.imagePath" />
+        <div class="icons">
+          <Tooltip>
+            <template #title>校正</template>
+            <EditOutlined @click="goToFirstPageOfBook(folder.path)" />
+          </Tooltip>
+          <Tooltip>
+            <template #title>ダウンロード</template>
+            <a
+              :href="`/api/download-book?path=${folder.path}`"
+              :download="`${folder.info.name}.txt`"
+            >
+              <DownloadOutlined />
+            </a>
+          </Tooltip>
+          <Tooltip>
+            <template #title>削除</template>
+            <Popconfirm
+              title="Are you sure delete this book?"
+              ok-text="Yes"
+              cancel-text="No"
+              @confirm="assetsStore.deleteBook(folder.path)"
+            >
+              <DeleteOutlined />
+            </Popconfirm>
+          </Tooltip>
         </div>
-      </BadgeRibbon>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { BadgeRibbon, Tooltip, Popconfirm } from 'ant-design-vue'
+import { Tooltip, Popconfirm } from 'ant-design-vue'
 import {
   EditOutlined,
   DownloadOutlined,
@@ -58,53 +60,35 @@ import { useRouter } from 'vue-router'
 import { useAssetsStore } from '../store/assets'
 
 const assetsStore = useAssetsStore()
-const { books } = storeToRefs(assetsStore)
-
-const list = computed(() => {
-  const bookNames = Object.keys(books.value)
-  return bookNames
-    .filter((i) => books.value[i].length > 0)
-    .map((i) => {
-      const ocrDone = books.value[i].every((p) => !!p.ocrPath)
-      return {
-        bookName: i,
-        firstImg: books.value[i][0].imgPath,
-        ocrDone,
-        badgeText: ocrDone ? 'OCR完了' : '準備中',
-        badgeColor: ocrDone ? 'green' : 'magenta',
-      }
-    })
-})
+const { subDirs, subBookDirs } = storeToRefs(assetsStore)
 
 const router = useRouter()
 
-const goToFirstPageOfBook = (book: string) => {
-  router.push({ name: 'proofreading', params: { book, page: 1 } })
+const goToFirstPageOfBook = (path: string) => {
+  router.push({
+    name: 'proofreading',
+    params: { path, page: 1 },
+  })
 }
 </script>
 
 <style lang="scss" scoped>
 .book-list {
-  max-width: 800px;
-  margin: 0 auto;
-  margin-top: 32px;
+  margin: 32px auto;
   .gallery {
+    margin-bottom: 24px;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
     .tile {
       background-color: #f8fafd;
+      &:hover {
+        background-color: #eceef1;
+      }
       border-radius: 16px;
       padding: 12px;
       height: 100%;
       box-sizing: border-box;
-      &.done:hover {
-        background-color: #eceef1;
-      }
-      &.waiting {
-        cursor: not-allowed;
-        opacity: 0.5;
-      }
       display: flex;
       flex-direction: column;
       .title {
@@ -112,9 +96,6 @@ const goToFirstPageOfBook = (book: string) => {
         font-weight: 500;
         line-height: 20px;
         padding-bottom: 8px;
-        text-overflow: ellipsis;
-        overflow: hidden;
-        white-space: nowrap;
       }
       & > img {
         width: 100%;
@@ -147,6 +128,13 @@ const goToFirstPageOfBook = (book: string) => {
           .anticon {
             padding: 4px;
           }
+        }
+      }
+
+      &.is-directory {
+        cursor: pointer;
+        .title {
+          padding: 0;
         }
       }
     }

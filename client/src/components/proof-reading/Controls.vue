@@ -1,7 +1,7 @@
 <template>
   <div class="controls">
     <Pagination
-      :current="page"
+      :current="currentPage"
       :total="totalPages"
       :default-page-size="1"
       :show-size-changer="false"
@@ -30,13 +30,13 @@ import { useWindowSize } from '@vueuse/core'
 const { width } = useWindowSize()
 
 const proofreadingStore = useProofreadingStore()
-const { book, saveChanges, resetChanges } = proofreadingStore
-const { totalPages, page } = storeToRefs(proofreadingStore)
+const { bookPath, saveChanges, resetChanges } = proofreadingStore
+const { totalPages, currentPage } = storeToRefs(proofreadingStore)
 
 const router = useRouter()
 
 const onPageChange = (page: number) => {
-  router.push({ name: 'proofreading', params: { book, page } })
+  router.push({ name: 'proofreading', params: { path: bookPath, page } })
 }
 const savePageInfo = async () => {
   await saveChanges(true)

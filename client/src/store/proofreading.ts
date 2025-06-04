@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, toRaw } from 'vue'
-import { useAssetsStore } from './assets'
 import { convertFormat, saveBack } from '../utils'
-import { getOCRJson, saveOCRJson } from '../api'
+import { saveOCRJson, listPages, getPageInfo } from '../api'
 import type { Box, JsonOutput } from '../utils'
 
 interface EditStatus {
@@ -11,7 +10,6 @@ interface EditStatus {
 }
 interface Detail {
   ready: boolean
-  imageFileName: string
   imageUrl: string
   textContent: string
   textContentCopy: string
@@ -24,7 +22,6 @@ interface Detail {
 
 const INIT_STATE: Detail = {
   ready: false,
-  imageFileName: '',
   imageUrl: '',
   textContent: '',
   textContentCopy: '',
@@ -38,39 +35,48 @@ const INIT_STATE: Detail = {
 type Mode = 'drag' | 'edit' | 'add'
 
 export const useProofreadingStore = defineStore('proofreading', () => {
-  const assetsStore = useAssetsStore()
-
-  const book = ref<string>()
-  const page = ref<number>() // start from 1
+  const bookPath = ref('')
+  const pageList = ref<string[]>([])
+  const currentPage = ref<number>(1) // start from 1
   const pageDetail = ref<Detail>(structuredClone(INIT_STATE))
   const mode = ref<Mode>('drag')
   let ocrInfo: JsonOutput
 
   const totalPages = computed(() => {
-    if (!book.value) return 0
-    return assetsStore.books[book.value].length ?? 0
+    return pageList.value.length
+  })
+  const currentPageFullPath = computed(() => {
+    return pageList.value[currentPage.value - 1]
+  })
+  const currentPageName = computed(() => {
+    return currentPageFullPath.value.split('/').pop() || ''
   })
 
-  const initialize = (_book: string, _page?: number) => {
-    book.value = _book
-    page.value = _page ?? 1
-    pageDetail.value = structuredClone(INIT_STATE)
-    update()
+  const initialize = async (_bookPath: string, _page: number) => {
+    pageDetail.value.ready = false
+    if (bookPath.value !== _bookPath) {
+      const pages = await listPages(_bookPath)
+      if (Array.isArray(pages)) {
+        bookPath.value = _bookPath
+        pageList.value = pages
+        pageDetail.value = structuredClone(INIT_STATE)
+      }
+    }
+    currentPage.value = _page
+    await updatePage()
   }
 
-  const update = async () => {
-    if (!book.value || !page.value) return
+  const updatePage = async () => {
     pageDetail.value.ready = false
-    const detail = assetsStore.books[book.value]?.[page.value - 1]
-    if (!detail) return
-    ocrInfo = await getOCRJson(detail.ocrPath!)
-    const boxes = convertFormat(ocrInfo).boxes
+    const pageInfo = await getPageInfo(currentPageFullPath.value)
+    if (!pageInfo) return
+    ocrInfo = pageInfo.ocr
+    const boxes = convertFormat(pageInfo.ocr).boxes
     pageDetail.value = {
       ready: true,
-      imageFileName: detail.pageName,
-      imageUrl: detail.imgPath,
-      textContent: ocrInfo.txt,
-      textContentCopy: ocrInfo.txt,
+      imageUrl: pageInfo.imgPath,
+      textContent: pageInfo.ocr.txt,
+      textContentCopy: pageInfo.ocr.txt,
       layout: {
         boxes,
         editHistory: [{ boxes: structuredClone(boxes), selectedIndex: -1 }],
@@ -79,15 +85,7 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     }
   }
 
-  const getContentToSave = (): {
-    book: string
-    page: string
-    data: JsonOutput
-  } | null => {
-    if (!book.value || !page.value) return null
-    const detail = assetsStore.books[book.value]?.[page.value - 1]
-    if (!detail) return null
-
+  const getContentToSave = (): JsonOutput => {
     // save json
     const newJson = saveBack(
       {
@@ -96,7 +94,7 @@ export const useProofreadingStore = defineStore('proofreading', () => {
       },
       ocrInfo,
     )
-    return { book: book.value, page: detail.pageName, data: newJson }
+    return newJson
   }
   const saveChanges = async (showAnimation: boolean) => {
     if (showAnimation) {
@@ -104,8 +102,7 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     }
 
     const content = getContentToSave()
-    if (!content) return
-    await saveOCRJson(content.book, content.page, content.data)
+    await saveOCRJson(currentPageFullPath.value, content)
 
     if (showAnimation) {
       pageDetail.value.ready = true
@@ -288,8 +285,9 @@ export const useProofreadingStore = defineStore('proofreading', () => {
   }
 
   return {
-    book,
-    page,
+    bookPath,
+    currentPage,
+    currentPageName,
     initialize,
     pageDetail,
     totalPages,

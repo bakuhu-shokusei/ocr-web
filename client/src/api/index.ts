@@ -10,10 +10,12 @@ export async function login(userName: string, password: string) {
   }
 }
 
-export async function listAssets() {
+// A
+export async function listDirectories(path: string) {
   try {
-    const result = await axios.get('/api/list-assets', {
+    const result = await axios.get('/api/list-directory', {
       withCredentials: true,
+      params: { path },
     })
     if (result.data.status === 'success') {
       return result.data.data
@@ -26,11 +28,59 @@ export async function listAssets() {
   }
 }
 
+// B1
+export async function listPages(path: string) {
+  try {
+    const result = await axios.get('/api/list-pages', {
+      withCredentials: true,
+      params: { path },
+    })
+    if (result.data.status === 'success') {
+      return result.data.data
+    } else {
+      return false
+    }
+  } catch (e) {
+    handleError(e as any)
+    return false
+  }
+}
+
+// B2
+export async function getPageInfo(path: string) {
+  try {
+    const result = await axios.get('/api/get-page-info', {
+      withCredentials: true,
+      params: { path },
+    })
+    if (result.data.status === 'success') {
+      return result.data.data as { imgPath: string; ocr: JsonOutput }
+    } else {
+      return false
+    }
+  } catch (e) {
+    handleError(e as any)
+    return false
+  }
+}
+
+export async function saveOCRJson(path: string, data: JsonOutput) {
+  try {
+    await axios.post('/api/save-ocr-info', {
+      path,
+      data,
+    })
+  } catch (e) {
+    handleError(e as any)
+  }
+}
+
 export async function uploadFiles(
   bookName: string,
   files: File[],
   onProgress: (p: number) => void,
 ) {
+  return
   try {
     const form = new FormData()
     form.append('bookName', bookName)
@@ -61,36 +111,10 @@ function handleError(e: AxiosError) {
   }
 }
 
-export async function getOCRJson(url: string): Promise<JsonOutput> {
-  try {
-    const response = await axios.get<JsonOutput>(url)
-    return response.data
-  } catch (e) {
-    handleError(e as any)
-    return {} as any
-  }
-}
-
-export async function saveOCRJson(
-  bookName: string,
-  page: string,
-  data: JsonOutput,
-) {
-  try {
-    await axios.post('/api/save-ocr-info', {
-      bookName,
-      page,
-      data,
-    })
-  } catch (e) {
-    handleError(e as any)
-  }
-}
-
-export async function deleteBook(bookName: string) {
+export async function deleteBook(path: string) {
   try {
     await axios.delete('/api/delete-book', {
-      data: { bookName },
+      data: { path },
     })
     return true
   } catch (e) {
