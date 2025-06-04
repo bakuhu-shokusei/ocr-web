@@ -5,7 +5,6 @@ dotenv.config({ debug: true })
 const {
   USERS,
   PWS,
-  ASSETS_PATH,
   CLOUDFRONT_PATH,
   CLOUDFRONT_KEYPAIR_ID,
   CLOUDFRONT_PRIVATE_KEY,
@@ -48,10 +47,4 @@ class User {
 
 export const users = new Users()
 
-export {
-  Users,
-  ASSETS_PATH,
-  CLOUDFRONT_PATH,
-  CLOUDFRONT_KEYPAIR_ID,
-  CLOUDFRONT_PRIVATE_KEY,
-}
+export { Users, CLOUDFRONT_PATH, CLOUDFRONT_KEYPAIR_ID, CLOUDFRONT_PRIVATE_KEY }
