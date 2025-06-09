@@ -7,14 +7,12 @@ export interface Box {
   text: string
 }
 
-type BoxOutput = [number, number, number, number, string]
+export type BoxOutput = [number, number, number, number, string]
 export type JsonOutput = {
   contents: BoxOutput[]
   imginfo: {
     img_width: number
     img_height: number
-    img_path: string
-    img_name: string
   }
   txt: string
 }
@@ -24,9 +22,12 @@ export type PageInfo = {
   text: string
 }
 
-export function convertFormat(old: JsonOutput): PageInfo {
-  const [width, height] = [old.imginfo.img_width, old.imginfo.img_height]
-  const boxes = old.contents.map((i) => ({
+export function convertFormat(
+  contents: BoxOutput[],
+  width: number,
+  height: number,
+): Box[] {
+  return contents.map((i) => ({
     uuid: generateUUID(),
     xmin: i[0] / width,
     ymin: i[1] / height,
@@ -34,22 +35,20 @@ export function convertFormat(old: JsonOutput): PageInfo {
     ymax: i[3] / height,
     text: i[4],
   }))
-  return { text: old.txt, boxes }
 }
 
-export function saveBack(pageInfo: PageInfo, old: JsonOutput): JsonOutput {
-  const [width, height] = [old.imginfo.img_width, old.imginfo.img_height]
-  return {
-    contents: pageInfo.boxes.map((i) => [
-      Math.round(i.xmin * width),
-      Math.round(i.ymin * height),
-      Math.round(i.xmax * width),
-      Math.round(i.ymax * height),
-      i.text,
-    ]),
-    imginfo: old.imginfo,
-    txt: pageInfo.text,
-  }
+export function saveBack(
+  boxes: Box[],
+  width: number,
+  height: number,
+): BoxOutput[] {
+  return boxes.map((i) => [
+    Math.round(i.xmin * width),
+    Math.round(i.ymin * height),
+    Math.round(i.xmax * width),
+    Math.round(i.ymax * height),
+    i.text,
+  ])
 }
 
 export function generateUUID() {

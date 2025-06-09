@@ -20,12 +20,12 @@
         <div class="icons">
           <Tooltip>
             <template #title>校正</template>
-            <EditOutlined @click="goToFirstPageOfBook(folder.path)" />
+            <EditOutlined @click="goToFirstPageOfBook(folder.info.id)" />
           </Tooltip>
           <Tooltip>
             <template #title>ダウンロード</template>
             <a
-              :href="`/api/download-book?path=${folder.path}`"
+              :href="`/api/download-book?bookId=${folder.info.id}`"
               :download="`${folder.info.name}.txt`"
             >
               <DownloadOutlined />
@@ -37,7 +37,7 @@
               title="Are you sure delete this book?"
               ok-text="Yes"
               cancel-text="No"
-              @confirm="assetsStore.deleteBook(folder.path)"
+              @confirm="assetsStore.deleteBook(folder.info.id)"
             >
               <DeleteOutlined />
             </Popconfirm>
@@ -64,10 +64,10 @@ const { subDirs, subBookDirs } = storeToRefs(assetsStore)
 
 const router = useRouter()
 
-const goToFirstPageOfBook = (path: string) => {
+const goToFirstPageOfBook = (id: number) => {
   router.push({
     name: 'proofreading',
-    params: { path, page: 1 },
+    params: { bookId: id, page: 1 },
   })
 }
 </script>

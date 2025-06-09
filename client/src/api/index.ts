@@ -1,5 +1,5 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
-import { type JsonOutput } from '../utils'
+import { type BoxOutput } from '../utils'
 
 export async function login(userName: string, password: string) {
   try {
@@ -29,11 +29,11 @@ export async function listDirectories(path: string) {
 }
 
 // B1
-export async function listPages(path: string) {
+export async function listPages(bookId: number) {
   try {
     const result = await axios.get('/api/list-pages', {
       withCredentials: true,
-      params: { path },
+      params: { bookId },
     })
     if (result.data.status === 'success') {
       return result.data.data
@@ -47,14 +47,14 @@ export async function listPages(path: string) {
 }
 
 // B2
-export async function getPageInfo(path: string) {
+export async function getPageInfo(bookId: number, page: number) {
   try {
     const result = await axios.get('/api/get-page-info', {
       withCredentials: true,
-      params: { path },
+      params: { bookId, page },
     })
     if (result.data.status === 'success') {
-      return result.data.data as { imgPath: string; ocr: JsonOutput }
+      return result.data.data
     } else {
       return false
     }
@@ -64,11 +64,17 @@ export async function getPageInfo(path: string) {
   }
 }
 
-export async function saveOCRJson(path: string, data: JsonOutput) {
+// C1
+export async function saveOCRJson(
+  pageId: number,
+  data: BoxOutput[],
+  text: string,
+) {
   try {
     await axios.post('/api/save-ocr-info', {
-      path,
+      pageId,
       data,
+      text,
     })
   } catch (e) {
     handleError(e as any)
@@ -111,10 +117,10 @@ function handleError(e: AxiosError) {
   }
 }
 
-export async function deleteBook(path: string) {
+export async function deleteBook(bookId: number) {
   try {
     await axios.delete('/api/delete-book', {
-      data: { path },
+      data: { bookId },
     })
     return true
   } catch (e) {

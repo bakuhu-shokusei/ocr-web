@@ -1,14 +1,7 @@
-import { posix } from 'node:path'
 import express, { type Request, type Response } from 'express'
 import { verifyLogin } from './login'
-import {
-  listSubdirectoriesWithoutUserName,
-  listSubdirectoriesWithInfo,
-  getPageInfo,
-  updateJsonFile,
-  loopEachOCRJson,
-  deleteS3Folder,
-} from '@/utils/s3'
+import { listSubdirectoriesWithInfo, getPageByBook } from '@/utils/assets'
+import { db } from '@/db/ocr'
 
 export const assetsRouter = express.Router()
 
@@ -32,10 +25,9 @@ assetsRouter.get(
   '/api/list-directory',
   verifyLogin,
   async (req: Request, res: Response) => {
-    const userName = (req as any).currentUser.userName
-    const path = req.query.path
-    const prefix = [userName, path].join('/')
-    const directories = await listSubdirectoriesWithInfo(prefix)
+    const directories = await listSubdirectoriesWithInfo(
+      req.query.path as string,
+    )
 
     res.json({
       status: 'success',
@@ -49,14 +41,12 @@ assetsRouter.get(
   '/api/list-pages',
   verifyLogin,
   async (req: Request, res: Response) => {
-    const userName = (req as any).currentUser.userName
-    const path = req.query.path
-    const prefix = [userName, path].join('/')
-    const pages = await listSubdirectoriesWithoutUserName(prefix)
+    const bookId = req.query.bookId
+    const total = await db.getNumberOfPages(parseInt(bookId as string))
 
     res.json({
       status: 'success',
-      data: pages,
+      data: total,
     })
   },
 )
@@ -66,11 +56,10 @@ assetsRouter.get(
   '/api/get-page-info',
   verifyLogin,
   async (req: Request, res: Response) => {
-    const userName = (req as any).currentUser.userName
-    const path = req.query.path
-    const prefix = [userName, path].join('/')
+    const bookId = parseInt(req.query.bookId as string)
+    const page = parseInt(req.query.page as string)
     try {
-      const pages = await getPageInfo(prefix)
+      const pages = await getPageByBook(bookId, page)
 
       res.json({
         status: 'success',
@@ -84,13 +73,13 @@ assetsRouter.get(
   },
 )
 
+// C1.
 assetsRouter.post(
   '/api/save-ocr-info',
   verifyLogin,
   async (req: Request, res: Response) => {
-    const userName: string = (req as any).currentUser.userName
-    const { path, data } = req.body
-    await updateJsonFile(posix.join(userName, path, 'ocr.json'), data)
+    const { pageId, data, text } = req.body
+    await db.updatePageOCRAndText(pageId, data, text)
     res.json({
       status: 'success',
     })
@@ -101,15 +90,10 @@ assetsRouter.get(
   '/api/download-book',
   verifyLogin,
   async (req: Request, res: Response) => {
-    const userName: string = (req as any).currentUser.userName
-    const path = req.query.path as string
+    const bookId = parseInt(req.query.bookId as string)
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-    res.setHeader('Transfer-Encoding', 'chunked')
-    await loopEachOCRJson(posix.join(userName, path), (ocr) => {
-      res.write(ocr.txt)
-      res.write('\n\n')
-    })
-    res.end()
+    const text = await db.getBookText(bookId)
+    res.send(text)
   },
 )
 
@@ -117,9 +101,8 @@ assetsRouter.delete(
   '/api/delete-book',
   verifyLogin,
   async (req: Request, res: Response) => {
-    const userName: string = (req as any).currentUser.userName
-    const { path } = req.body
-    await deleteS3Folder(posix.join(userName, path))
+    const { bookId } = req.body
+    await db.deleteBook(bookId)
     res.json({
       status: 'success',
     })

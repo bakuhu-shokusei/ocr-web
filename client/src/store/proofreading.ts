@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, toRaw } from 'vue'
 import { convertFormat, saveBack } from '../utils'
 import { saveOCRJson, listPages, getPageInfo } from '../api'
-import type { Box, JsonOutput } from '../utils'
+import type { Box, BoxOutput } from '../utils'
 
 interface EditStatus {
   boxes: Box[]
@@ -34,49 +34,58 @@ const INIT_STATE: Detail = {
 
 type Mode = 'drag' | 'edit' | 'add'
 
+interface Page {
+  id?: number
+  book_id: number
+  page_number: number
+  name?: string
+  image_url: string
+  image_width: number
+  image_height: number
+  ocr_info: BoxOutput[]
+  text?: string
+  created_at?: Date
+  updated_at?: Date
+}
+
 export const useProofreadingStore = defineStore('proofreading', () => {
-  const bookPath = ref('')
-  const pageList = ref<string[]>([])
+  const bookId = ref(-1)
+  const totalPages = ref(0) // number of pages of book
   const currentPage = ref<number>(1) // start from 1
+  const initialPageDetail = ref<Page>() // full info from db
   const pageDetail = ref<Detail>(structuredClone(INIT_STATE))
   const mode = ref<Mode>('drag')
-  let ocrInfo: JsonOutput
 
-  const totalPages = computed(() => {
-    return pageList.value.length
-  })
-  const currentPageFullPath = computed(() => {
-    return pageList.value[currentPage.value - 1]
-  })
-  const currentPageName = computed(() => {
-    return currentPageFullPath.value.split('/').pop() || ''
-  })
-
-  const initialize = async (_bookPath: string, _page: number) => {
+  const initialize = async (_bookId: number, _page: number) => {
     pageDetail.value.ready = false
-    if (bookPath.value !== _bookPath) {
-      const pages = await listPages(_bookPath)
-      if (Array.isArray(pages)) {
-        bookPath.value = _bookPath
-        pageList.value = pages
-        pageDetail.value = structuredClone(INIT_STATE)
-      }
+    if (_bookId !== bookId.value) {
+      totalPages.value = await listPages(_bookId)
+      bookId.value = _bookId
     }
     currentPage.value = _page
     await updatePage()
   }
 
   const updatePage = async () => {
-    pageDetail.value.ready = false
-    const pageInfo = await getPageInfo(currentPageFullPath.value)
-    if (!pageInfo) return
-    ocrInfo = pageInfo.ocr
-    const boxes = convertFormat(pageInfo.ocr).boxes
+    pageDetail.value = structuredClone(INIT_STATE)
+
+    const _pageInfo = await getPageInfo(bookId.value, currentPage.value)
+    if (!_pageInfo) {
+      return
+    }
+
+    const pageInfo: Page = _pageInfo
+    initialPageDetail.value = pageInfo
+    const boxes = convertFormat(
+      pageInfo.ocr_info,
+      pageInfo.image_width,
+      pageInfo.image_height,
+    )
     pageDetail.value = {
       ready: true,
-      imageUrl: pageInfo.imgPath,
-      textContent: pageInfo.ocr.txt,
-      textContentCopy: pageInfo.ocr.txt,
+      imageUrl: pageInfo.image_url,
+      textContent: pageInfo.text!,
+      textContentCopy: pageInfo.text!,
       layout: {
         boxes,
         editHistory: [{ boxes: structuredClone(boxes), selectedIndex: -1 }],
@@ -85,29 +94,27 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     }
   }
 
-  const getContentToSave = (): JsonOutput => {
-    // save json
-    const newJson = saveBack(
-      {
-        boxes: currentEditStatus.value.boxes,
-        text: pageDetail.value.textContentCopy,
-      },
-      ocrInfo,
-    )
-    return newJson
-  }
   const saveChanges = async (showAnimation: boolean) => {
     if (showAnimation) {
       pageDetail.value.ready = false
     }
 
-    const content = getContentToSave()
-    await saveOCRJson(currentPageFullPath.value, content)
+    const ocrContent = saveBack(
+      currentEditStatus.value.boxes,
+      initialPageDetail.value!.image_width,
+      initialPageDetail.value!.image_height,
+    )
+    await saveOCRJson(
+      initialPageDetail.value!.id!,
+      ocrContent,
+      pageDetail.value.textContentCopy,
+    )
 
     if (showAnimation) {
       pageDetail.value.ready = true
     }
   }
+
   const resetChanges = () => {
     pageDetail.value.textContentCopy = pageDetail.value.textContent
     const layout = pageDetail.value.layout
@@ -285,9 +292,9 @@ export const useProofreadingStore = defineStore('proofreading', () => {
   }
 
   return {
-    bookPath,
+    bookId,
     currentPage,
-    currentPageName,
+    initialPageDetail,
     initialize,
     pageDetail,
     totalPages,
@@ -305,7 +312,6 @@ export const useProofreadingStore = defineStore('proofreading', () => {
     deleteBox,
     canDeleteBox,
     replaceTxt,
-    getContentToSave,
     mode,
     setMode,
     saveDraggedBox,

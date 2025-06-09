@@ -6,7 +6,7 @@
       'is-drag-mode': mode === 'drag',
     }"
   >
-    <h3 class="file-name">{{ currentPageName }}</h3>
+    <h3 class="file-name">{{ initialPageDetail?.name || '' }}</h3>
     <div
       ref="imgContainer"
       class="image-container-body"
@@ -16,7 +16,7 @@
         ref="actualImage"
         class="actual-image"
         :style="{
-          backgroundImage: `url(${pageDetail.imageUrl})`,
+          backgroundImage,
           aspectRatio: `${imageOriginalSize[0]} / ${imageOriginalSize[1]}`,
         }"
         :class="{
@@ -99,8 +99,10 @@ import { generateUUID, type Box } from '../../utils'
 import { createDragHandler } from '../../utils/drag'
 
 const proofreadingStore = useProofreadingStore()
-const { pageDetail, currentPageName, currentEditStatus, mode } =
+const { pageDetail, initialPageDetail, currentEditStatus, mode } =
   storeToRefs(proofreadingStore)
+
+const backgroundImage = computed(() => `url("${pageDetail.value.imageUrl}")`)
 
 const imageOriginalSize = ref<[number, number]>([1, 1])
 watch(

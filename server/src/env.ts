@@ -8,6 +8,10 @@ const {
   CLOUDFRONT_PATH,
   CLOUDFRONT_KEYPAIR_ID,
   CLOUDFRONT_PRIVATE_KEY,
+  DB_USER,
+  DB_HOST,
+  DB_NAME,
+  DB_PASSWORD,
 } = process.env
 
 class Users {
@@ -47,4 +51,13 @@ class User {
 
 export const users = new Users()
 
-export { Users, CLOUDFRONT_PATH, CLOUDFRONT_KEYPAIR_ID, CLOUDFRONT_PRIVATE_KEY }
+export {
+  Users,
+  CLOUDFRONT_PATH,
+  CLOUDFRONT_KEYPAIR_ID,
+  CLOUDFRONT_PRIVATE_KEY,
+  DB_USER,
+  DB_HOST,
+  DB_NAME,
+  DB_PASSWORD,
+}

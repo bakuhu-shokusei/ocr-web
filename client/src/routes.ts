@@ -20,7 +20,7 @@ const routes = [
         component: () => import('./pages/List.vue'),
       },
       {
-        path: 'proofreading/:path/:page',
+        path: 'proofreading/book/:bookId/page/:page',
         name: 'proofreading',
         component: () => import('./pages/Proofreading.vue'),
       },

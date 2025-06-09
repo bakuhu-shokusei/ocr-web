@@ -18,6 +18,7 @@ type SubBookItem = {
     type: 'book'
     imagePath: string
     name: string
+    id: number
   }
 }
 
@@ -33,9 +34,7 @@ export const useAssetsStore = defineStore('assets', () => {
   const subBookDirs = ref<SubBookItem[]>([])
   const loadingStore = useLoadingStore()
 
-  const updatePath = async (path: string) => {
-    if (path === currentPath.value) return
-
+  const updatePath = async (path: string | null) => {
     // reset
     subDirs.value = []
     subBookDirs.value = []
@@ -62,8 +61,8 @@ export const useAssetsStore = defineStore('assets', () => {
     loadingStore.setLoading(false)
   }
 
-  const deleteBook = async (path: string) => {
-    await apiDeleteBook(path)
+  const deleteBook = async (bookId: number) => {
+    await apiDeleteBook(bookId)
     await getFolders()
   }
 

@@ -30,13 +30,16 @@ import { useWindowSize } from '@vueuse/core'
 const { width } = useWindowSize()
 
 const proofreadingStore = useProofreadingStore()
-const { bookPath, saveChanges, resetChanges } = proofreadingStore
+const { saveChanges, resetChanges } = proofreadingStore
 const { totalPages, currentPage } = storeToRefs(proofreadingStore)
 
 const router = useRouter()
 
 const onPageChange = (page: number) => {
-  router.push({ name: 'proofreading', params: { path: bookPath, page } })
+  router.push({
+    name: 'proofreading',
+    params: { bookId: proofreadingStore.bookId, page },
+  })
 }
 const savePageInfo = async () => {
   await saveChanges(true)
