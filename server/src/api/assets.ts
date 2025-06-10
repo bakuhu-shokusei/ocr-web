@@ -86,6 +86,27 @@ assetsRouter.post(
   },
 )
 
+// D1
+assetsRouter.get(
+  '/api/get-book-name',
+  verifyLogin,
+  async (req: Request, res: Response) => {
+    const bookId = parseInt(req.query.bookId as string)
+    try {
+      const book = await db.getBookById(bookId)
+
+      res.json({
+        status: 'success',
+        name: book!.name,
+      })
+    } catch {
+      res.json({
+        status: 'failed',
+      })
+    }
+  },
+)
+
 assetsRouter.get(
   '/api/download-book',
   verifyLogin,

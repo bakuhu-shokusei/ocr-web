@@ -440,6 +440,16 @@ class BooksDatabase {
     }
   }
 
+  async getBookById(pageId: number): Promise<Book | null> {
+    const query = `
+      SELECT id, name
+      FROM books 
+      WHERE id = $1
+    `
+    const result = await this.pool.query(query, [pageId])
+    return result.rows.length > 0 ? result.rows[0] : null
+  }
+
   // Get page by ID (helper method)
   async getPageById(pageId: number): Promise<Page | null> {
     const query = `

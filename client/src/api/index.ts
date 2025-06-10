@@ -81,6 +81,25 @@ export async function saveOCRJson(
   }
 }
 
+// D1
+export async function getBookName(bookId: number) {
+  try {
+    const result = await axios.get('/api/get-book-name', {
+      params: {
+        bookId,
+      },
+    })
+    if (result.data.status === 'success') {
+      return result.data.name
+    } else {
+      return false
+    }
+  } catch (e) {
+    handleError(e as any)
+    return false
+  }
+}
+
 export async function uploadFiles(
   bookName: string,
   files: File[],

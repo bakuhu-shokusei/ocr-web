@@ -6,7 +6,9 @@
       'is-drag-mode': mode === 'drag',
     }"
   >
-    <h3 class="file-name">{{ initialPageDetail?.name || '' }}</h3>
+    <h3 class="file-name" @click="goBackToBookList">
+      <LeftOutlined class="left-icon" />{{ initialPageDetail?.name || '' }}
+    </h3>
     <div
       ref="imgContainer"
       class="image-container-body"
@@ -91,15 +93,23 @@ import type { CSSProperties } from 'vue'
 import { ref, computed, watch, h } from 'vue'
 import { useStorage, useElementSize } from '@vueuse/core'
 import { Slider, Button } from 'ant-design-vue'
-import { DragOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import {
+  DragOutlined,
+  EditOutlined,
+  LeftOutlined,
+  PlusOutlined,
+} from '@ant-design/icons-vue'
 import { storeToRefs } from 'pinia'
 import VueDraggableResizable from 'vue-draggable-resizable'
-import { useProofreadingStore } from '../../store/proofreading'
+import { useProofreadingStore } from '@/store/proofreading'
+import { useAssetsStore } from '@/store/assets'
 import { generateUUID, type Box } from '../../utils'
 import { createDragHandler } from '../../utils/drag'
+import { getBookName } from '../../api'
 
+const assetsStore = useAssetsStore()
 const proofreadingStore = useProofreadingStore()
-const { pageDetail, initialPageDetail, currentEditStatus, mode } =
+const { bookId, pageDetail, initialPageDetail, currentEditStatus, mode } =
   storeToRefs(proofreadingStore)
 
 const backgroundImage = computed(() => `url("${pageDetail.value.imageUrl}")`)
@@ -267,6 +277,15 @@ watch(
     }
   },
 )
+
+const goBackToBookList = async () => {
+  const name = await getBookName(bookId.value)
+  if (name) {
+    const path = name.split('/')
+    path.pop()
+    assetsStore.updatePath(path.join('/'))
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -299,6 +318,10 @@ p {
     align-items: center;
     margin-right: auto;
     width: 100%;
+    .left-icon {
+      margin-right: 4px;
+    }
+    cursor: pointer;
   }
 
   .controls {
