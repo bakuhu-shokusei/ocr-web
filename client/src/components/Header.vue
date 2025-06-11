@@ -9,7 +9,11 @@
 
 <script lang="ts" setup>
 import { h, computed } from 'vue'
-import { FolderOpenFilled, FileImageOutlined } from '@ant-design/icons-vue'
+import {
+  FolderOpenFilled,
+  FileImageOutlined,
+  SearchOutlined,
+} from '@ant-design/icons-vue'
 import { Menu } from 'ant-design-vue'
 import type { MenuProps } from 'ant-design-vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -25,15 +29,15 @@ const items = computed<MenuProps['items']>(() => {
       icon: () => h(FolderOpenFilled),
       label: 'ファイル一覧',
     },
-    // {
-    //   key: 'search',
-    //   icon: () => h(SearchOutlined),
-    //   label: '検索',
-    // },
     {
       key: 'proofreading',
       icon: () => h(FileImageOutlined),
       label: '校正',
+    },
+    {
+      key: 'search',
+      icon: () => h(SearchOutlined),
+      label: '検索',
     },
   ]
 })

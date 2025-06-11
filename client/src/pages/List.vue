@@ -1,10 +1,8 @@
 <template>
-  <div>
-    <div class="list">
-      <Breadcrumb />
-      <!-- <Upload /> -->
-      <BookList />
-    </div>
+  <div class="list">
+    <Breadcrumb />
+    <!-- <Upload /> -->
+    <BookList />
   </div>
 </template>
 
@@ -31,6 +29,7 @@ watch(
 <style scoped>
 .list {
   max-width: 800px;
+  width: 100%;
   margin: 0 auto;
   padding: 1px 16px;
 }

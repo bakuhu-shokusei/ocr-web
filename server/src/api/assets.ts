@@ -107,6 +107,29 @@ assetsRouter.get(
   },
 )
 
+// E1
+assetsRouter.get(
+  '/api/search-book-by-name',
+  verifyLogin,
+  async (req: Request, res: Response) => {
+    const bookName = req.query.bookName as string
+    const page = parseInt(req.query.page as string)
+    const limit = parseInt(req.query.limit as string)
+    try {
+      const result = await db.searchBooks(bookName, { page, limit })
+
+      res.json({
+        status: 'success',
+        data: result,
+      })
+    } catch {
+      res.json({
+        status: 'failed',
+      })
+    }
+  },
+)
+
 assetsRouter.get(
   '/api/download-book',
   verifyLogin,

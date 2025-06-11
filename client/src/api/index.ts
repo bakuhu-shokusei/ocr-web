@@ -1,6 +1,18 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
 import { type BoxOutput } from '../utils'
 
+interface PaginatedResult<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNext: boolean
+    hasPrev: boolean
+  }
+}
+
 export async function login(userName: string, password: string) {
   try {
     const result = await axios.post('/api/login', { userName, password })
@@ -91,6 +103,30 @@ export async function getBookName(bookId: number) {
     })
     if (result.data.status === 'success') {
       return result.data.name
+    } else {
+      return false
+    }
+  } catch (e) {
+    handleError(e as any)
+    return false
+  }
+}
+
+// E1
+export async function searchBookByName(
+  bookName: string,
+  option: { page: number; limit: number },
+) {
+  try {
+    const result = await axios.get('/api/search-book-by-name', {
+      params: {
+        bookName,
+        page: option.page,
+        limit: option.limit,
+      },
+    })
+    if (result.data.status === 'success') {
+      return result.data.data as PaginatedResult<{ id: number; name: string }>
     } else {
       return false
     }
