@@ -8,14 +8,16 @@
 
     <!-- Steps -->
     <div class="steps-container">
-      <Steps :current="currentStep - 1" size="small">
+      <Steps :current="currentStep - 1">
         <Step
           title="本を探す"
           description="本を選択してから内容を検索できます。"
+          @click="goBackToBookSearch"
         />
         <Step
           title="内容を探す"
           description="該当する内容が含まれるページを検索する"
+          @click="goToContentSearch"
         />
       </Steps>
     </div>
@@ -82,8 +84,8 @@
           :data-source="displayedBooks"
           item-layout="vertical"
           :pagination="{
-            current: currentPage,
-            pageSize: BOOKS_PER_PAGE,
+            current: currentPageOfBooks,
+            pageSize: PAGE_SIZE,
             total: totalBooks,
             showSizeChanger: false,
             onChange: searchBooks,
@@ -131,76 +133,82 @@
 
     <!-- Step 2: Content Search -->
     <div v-if="currentStep === 2">
-      <!-- Back Button -->
-      <Button @click="goBackToBookSearch" style="margin-bottom: 24px">
-        <template #icon><ArrowRightOutlined /></template>
-        Back to Book Selection
-      </Button>
-
       <!-- Content Search Card -->
-      <Card title="Search Content" style="margin-bottom: 24px">
+      <Card title="内容を探す" style="margin-bottom: 24px">
         <template #extra>
           <Text type="secondary">
-            Searching in {{ selectedBooks.length }} books
+            <span v-if="selectedBooks.length === 0" class="search-by-book-text"
+              >すべて</span
+            >
+            <span v-else class="search-by-book-text"
+              >{{ selectedBooks.length }}冊</span
+            >の本の中から探す
           </Text>
         </template>
 
         <InputSearch
           v-model:value="contentQuery"
-          placeholder="Enter keywords to search within books..."
+          placeholder="内容から探す"
           size="large"
+          name="content-search"
+          autocomplete="on"
           :loading="contentLoading"
-          @search="searchContent"
-          enter-button="Search"
+          @search="searchContent(1)"
+          enter-button="検索"
         />
       </Card>
 
       <!-- Content Results -->
-      <Card v-if="searchResults.length > 0" title="Content Results">
+      <Card v-if="totalPages > 0" title="検索結果">
         <template #extra>
-          <Text type="secondary">
-            {{ searchResults.length }} matches found
-          </Text>
+          <Text type="secondary"> {{ totalPages }} 件 </Text>
         </template>
 
-        <div
-          v-for="result in searchResults"
-          :key="result.id"
-          class="search-result"
+        <List
+          :data-source="searchResults"
+          item-layout="vertical"
+          :pagination="{
+            current: currentPageOfPages,
+            pageSize: PAGE_SIZE,
+            total: totalPages,
+            showSizeChanger: false,
+            onChange: searchContent,
+          }"
         >
-          <div style="margin-bottom: 8px">
-            <Space>
-              <!-- <Icon type="file-text" /> -->
-              <Text strong>{{ result.bookTitle }}</Text>
-              <Text type="secondary">• Page {{ result.page }}</Text>
-            </Space>
-          </div>
+          <template #renderItem="{ item }">
+            <ListItem>
+              <Card class="search-content-card">
+                <div style="margin-bottom: 8px">
+                  <Space
+                    class="title"
+                    @click="goToPage(item.book_id, item.page_number)"
+                  >
+                    <!-- <Icon type="file-text" /> -->
+                    <Text strong>{{ item.book_name }}</Text>
+                    <Text type="secondary"
+                      >• ページ {{ item.page_number }}</Text
+                    >
+                  </Space>
+                </div>
 
-          <Paragraph style="margin-bottom: 8px; line-height: 1.6">
-            <span v-html="highlightText(result.content, contentQuery)"></span>
-          </Paragraph>
+                <Paragraph class="content">
+                  <span v-html="highlightText(item.text!, contentQuery)"></span>
+                </Paragraph>
 
-          <Text type="secondary" italic>
-            {{ result.context }}
-          </Text>
-        </div>
+                <Text type="secondary" italic>
+                  最終編集：
+                  {{ new Date(item.updated_at).toLocaleString('ja-jp') }}
+                </Text>
+              </Card>
+            </ListItem>
+          </template>
+        </List>
       </Card>
-
-      <!-- Empty Content Results -->
-      <Empty
-        v-if="!contentLoading && contentQuery && searchResults.length === 0"
-        style="margin-top: 48px"
-      >
-        <template #description>
-          <span>No content found for "{{ contentQuery }}"</span>
-        </template>
-      </Empty>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import {
   Card,
   Typography,
@@ -214,168 +222,12 @@ import {
   ListItem,
   CardMeta,
   Checkbox,
-  Empty,
-  message,
 } from 'ant-design-vue'
 import { ArrowRightOutlined } from '@ant-design/icons-vue'
-import { searchBookByName } from '@/api'
-import { useRouter } from 'vue-router'
+import { useSearchStore, PAGE_SIZE } from '@/store/search'
+import { storeToRefs } from 'pinia'
 
 const { Title, Text, Paragraph } = Typography
-
-interface Book {
-  id: number
-  name: string
-}
-
-interface SearchResult {
-  id: number
-  bookTitle: string
-  page: number
-  content: string
-  context: string
-}
-
-// Reactive state
-const currentStep = ref(1)
-const bookQuery = ref('')
-const contentQuery = ref('')
-const totalBooks = ref(0)
-const displayedBooks = ref<Book[]>([])
-const selectedBooks = ref<Book[]>([])
-const searchResults = ref<SearchResult[]>([])
-const currentPage = ref(1)
-const BOOKS_PER_PAGE = 20
-const loading = ref(false)
-const contentLoading = ref(false)
-
-const mockSearchResults = ref([
-  {
-    id: 1,
-    bookTitle: 'The Great Gatsby',
-    page: 45,
-    content:
-      'In his blue gardens men and girls came and went like moths among the whisperings and the champagne and the stars.',
-    context:
-      "The party scene description where Gatsby's extravagant lifestyle is portrayed through vivid imagery.",
-  },
-  {
-    id: 2,
-    bookTitle: '1984',
-    page: 123,
-    content:
-      'Big Brother is watching you. The Party seeks power entirely for its own sake.',
-    context:
-      "Winston's realization about the totalitarian nature of the Party's control over society.",
-  },
-  {
-    id: 3,
-    bookTitle: 'To Kill a Mockingbird',
-    page: 87,
-    content:
-      'You never really understand a person until you climb into his skin and walk around in it.',
-    context:
-      "Atticus Finch's advice to Scout about empathy and understanding others.",
-  },
-])
-
-// Methods
-const searchBooks = async (page: number) => {
-  if (bookQuery.value.trim().length < 2) {
-    message.warning('二文字以上を入力してください')
-    return
-  }
-
-  loading.value = true
-  currentPage.value = page
-
-  try {
-    const result = await searchBookByName(bookQuery.value, {
-      page,
-      limit: BOOKS_PER_PAGE,
-    })
-    if (!result) throw 'search failed'
-
-    displayedBooks.value = result.data
-    totalBooks.value = result.pagination.total
-
-    if (displayedBooks.value.length === 0) {
-      message.info('一致する本は見つかりませんでした')
-    }
-  } catch (error) {
-    message.error('エラーが発生しました')
-    console.error('Search error:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const isBookSelected = (book: Book) => {
-  return selectedBooks.value.some((b) => b.id === book.id)
-}
-
-const toggleBookSelection = (book: Book) => {
-  if (isBookSelected(book)) {
-    selectedBooks.value = selectedBooks.value.filter((b) => b.id !== book.id)
-  } else if (selectedBooks.value.length < 10) {
-    selectedBooks.value = [...selectedBooks.value, book]
-  } else {
-    message.warning('You can select at most 10 books')
-  }
-}
-
-const removeBook = (book: Book) => {
-  selectedBooks.value = selectedBooks.value.filter((b) => b.id !== book.id)
-}
-
-const goToContentSearch = () => {
-  if (selectedBooks.value.length === 0) {
-    message.warning('Please select at least one book')
-    return
-  }
-  currentStep.value = 2
-}
-
-const goBackToBookSearch = () => {
-  currentStep.value = 1
-}
-
-const searchContent = async () => {
-  if (!contentQuery.value.trim()) {
-    message.warning('Please enter search keywords')
-    return
-  }
-
-  if (selectedBooks.value.length === 0) {
-    message.warning('Please select books first')
-    return
-  }
-
-  contentLoading.value = true
-
-  try {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    // Filter results based on selected books
-    const relevantResults = mockSearchResults.value.filter((result) =>
-      selectedBooks.value.some((book) => book.title === result.bookTitle),
-    )
-
-    searchResults.value = relevantResults
-
-    if (relevantResults.length === 0) {
-      message.info(`No content found for "${contentQuery.value}"`)
-    } else {
-      message.success(`Found ${relevantResults.length} matches`)
-    }
-  } catch (error) {
-    message.error('Failed to search content')
-    console.error('Content search error:', error)
-  } finally {
-    contentLoading.value = false
-  }
-}
 
 const highlightText = (text: string, query: string) => {
   if (!query) return text
@@ -383,13 +235,32 @@ const highlightText = (text: string, query: string) => {
   return text.replace(regex, '<span class="highlight">$1</span>')
 }
 
-const router = useRouter()
-const goToFirstPageOfBook = (id: number) => {
-  router.push({
-    name: 'proofreading',
-    params: { bookId: id, page: 1 },
-  })
-}
+const searchStore = useSearchStore()
+const {
+  searchBooks,
+  goBackToBookSearch,
+  goToContentSearch,
+  removeBook,
+  isBookSelected,
+  toggleBookSelection,
+  goToFirstPageOfBook,
+  searchContent,
+  goToPage,
+} = searchStore
+const {
+  currentStep,
+  bookQuery,
+  contentQuery,
+  totalBooks,
+  totalPages,
+  displayedBooks,
+  selectedBooks,
+  searchResults,
+  loading,
+  currentPageOfBooks,
+  currentPageOfPages,
+  contentLoading,
+} = storeToRefs(searchStore)
 </script>
 
 <style>
@@ -415,12 +286,6 @@ const goToFirstPageOfBook = (id: number) => {
   }
 }
 
-.search-result {
-  border-left: 4px solid #1890ff;
-  padding-left: 16px;
-  margin-bottom: 24px;
-}
-
 .steps-container {
   margin-bottom: 32px;
   .ant-steps-item-title {
@@ -439,5 +304,29 @@ const goToFirstPageOfBook = (id: number) => {
 
 .page-container {
   padding: 24px 0;
+}
+
+.search-by-book-text {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.search-content-card {
+  .title {
+    flex-wrap: wrap;
+    cursor: pointer;
+    &:hover {
+      .ant-space-item {
+        span {
+          color: var(--primary-blue);
+        }
+      }
+    }
+  }
+  .content {
+    margin-bottom: 8px;
+    line-height: 1.6;
+    white-space: pre-line;
+  }
 }
 </style>

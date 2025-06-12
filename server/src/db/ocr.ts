@@ -514,6 +514,7 @@ class BooksDatabase {
 
   async searchPages(
     searchTerm: string,
+    bookIds: number[],
     options: PaginationOptions = {},
   ): Promise<PaginatedResult<Page & { book_name: string }>> {
     const page = options.page || 1
@@ -525,20 +526,40 @@ class BooksDatabase {
       SELECT COUNT(*) as total
       FROM pages p
       JOIN books b ON p.book_id = b.id
-      WHERE p.text ILIKE $1 OR p.name ILIKE $1 OR p.text % $2 OR p.name % $2
+      WHERE (p.text ILIKE $1 OR p.name ILIKE $1 OR p.text % $2 OR p.name % $2)
     `
-    const countResult = await this.pool.query(countQuery, [
-      `%${searchTerm}%`,
-      searchTerm,
+    const queryParams: (string | number)[] = [`%${searchTerm}%`, searchTerm]
+    let paramIndex = 3
+
+    let extraQuery = ''
+    let extraParams: (string | number)[] = []
+    if (bookIds.length > 0) {
+      const bookIdPlaceholders = bookIds
+        .map(() => `$${paramIndex++}`)
+        .join(', ')
+      extraQuery = ` AND p.book_id IN (${bookIdPlaceholders})`
+      extraParams = [...bookIds]
+    }
+
+    const countResult = await this.pool.query(countQuery + extraQuery, [
+      ...queryParams,
+      ...extraParams,
     ])
     const total = parseInt(countResult.rows[0].total)
 
     // Get paginated results
+    paramIndex = 5
+    if (bookIds.length > 0) {
+      const bookIdPlaceholders = bookIds
+        .map(() => `$${paramIndex++}`)
+        .join(', ')
+      extraQuery = ` AND p.book_id IN (${bookIdPlaceholders})`
+    }
     const query = `
       SELECT p.*, b.name as book_name
       FROM pages p
       JOIN books b ON p.book_id = b.id
-      WHERE p.text ILIKE $1 OR p.name ILIKE $1 OR p.text % $2 OR p.name % $2
+      WHERE (p.text ILIKE $1 OR p.name ILIKE $1 OR p.text % $2 OR p.name % $2)${extraQuery}
       ORDER BY GREATEST(
         similarity(COALESCE(p.text, ''), $2),
         similarity(COALESCE(p.name, ''), $2)
@@ -550,6 +571,7 @@ class BooksDatabase {
       searchTerm,
       limit,
       offset,
+      ...extraParams,
     ])
 
     const totalPages = Math.ceil(total / limit)
@@ -666,155 +688,6 @@ class BooksDatabase {
 }
 
 const db = new BooksDatabase(pool)
-
-// Usage examples
-async function examples() {
-  try {
-    // Example 1: Insert a single book
-    console.log('=== Example 1: Insert single book ===')
-    const book1 = await db.insertBook('日本の歴史')
-    console.log('Inserted book:', book1)
-
-    // Example 2: Insert pages for the book
-    console.log('\n=== Example 2: Insert pages ===')
-    const ocrData1: OCRInfo[] = [
-      [10, 20, 100, 30, '第一章'],
-      [10, 60, 200, 25, '古代日本'],
-    ]
-
-    const page1 = await db.insertPage({
-      book_id: book1.id!,
-      page_number: 1,
-      name: '序章',
-      image_url: 'https://example.com/book1/page1.jpg',
-      image_width: 800,
-      image_height: 1200,
-      ocr_info: ocrData1,
-      text: '第一章 古代日本について説明します。',
-    })
-    console.log('Inserted page:', page1)
-
-    // Example 3: Insert book with multiple pages in transaction
-    console.log('\n=== Example 3: Insert book with pages (transaction) ===')
-    const pagesData = [
-      {
-        page_number: 1,
-        name: '縄文時代',
-        image_url: 'https://example.com/book2/page1.jpg',
-        image_width: 800,
-        image_height: 1200,
-        ocr_info: [[10, 20, 150, 30, '縄文時代']] as OCRInfo[],
-        text: '縄文時代は紀元前14000年頃から始まりました。',
-      },
-      {
-        page_number: 2,
-        name: '弥生時代',
-        image_url: 'https://example.com/book2/page2.jpg',
-        image_width: 800,
-        image_height: 1200,
-        ocr_info: [[15, 25, 120, 28, '弥生時代']] as OCRInfo[],
-        text: '弥生時代は紀元前10世紀頃から始まりました。',
-      },
-      {
-        page_number: 3,
-        name: '古墳時代',
-        image_url: 'https://example.com/book2/page3.jpg',
-        image_width: 800,
-        image_height: 1200,
-        ocr_info: [[20, 30, 140, 32, '古墳時代']] as OCRInfo[],
-        text: '古墳時代は3世紀中頃から7世紀頃まで続きました。',
-      },
-    ]
-
-    const { book: book2, pages: insertedPages } = await db.insertBookWithPages(
-      '日本史概論',
-      pagesData,
-    )
-    console.log('Inserted book with pages:', {
-      book: book2,
-      pageCount: insertedPages.length,
-    })
-
-    // Example 4: Batch insert additional pages
-    console.log('\n=== Example 4: Batch insert additional pages ===')
-    const additionalPages = [
-      {
-        page_number: 4,
-        name: '飛鳥時代',
-        image_url: 'https://example.com/book2/page4.jpg',
-        image_width: 800,
-        image_height: 1200,
-        ocr_info: [[25, 35, 130, 29, '飛鳥時代']] as OCRInfo[],
-        text: '飛鳥時代は6世紀末から8世紀初頭までの時代です。',
-      },
-    ]
-
-    const morePages = await db.insertMultiplePages(book2.id!, additionalPages)
-    console.log('Inserted additional pages:', morePages.length)
-
-    // Example 5: Search functionality
-    console.log('\n=== Example 5: Search examples ===')
-    const foundBooks = await db.searchBooks('歴史')
-    console.log(
-      'Found books:',
-      foundBooks.data.map((b) => b.name),
-    )
-
-    const foundPages = await db.searchPages('縄文')
-    console.log(
-      'Found pages:',
-      foundPages.data.map((p) => ({
-        book: p.book_name,
-        page: p.name || `Page ${p.page_number}`,
-      })),
-    )
-
-    // Example 6: Update OCR and text
-    console.log('\n=== Example 6: Update page OCR and text ===')
-
-    // Update OCR info only
-    const updatedOCR: OCRInfo[] = [
-      [10, 20, 150, 30, '第一章'],
-      [10, 60, 200, 25, '古代日本の歴史'],
-      [10, 100, 180, 22, '更新されたテキスト'],
-    ]
-    const updatedPageOCR = await db.updatePageOCR(page1.id!, updatedOCR)
-    console.log('Updated page OCR:', updatedPageOCR.id)
-
-    // Update text only
-    const updatedPageText = await db.updatePageText(
-      page1.id!,
-      '第一章 古代日本について詳しく説明します。この章では縄文時代から始まります。',
-    )
-    console.log('Updated page text:', updatedPageText.id)
-
-    // Update both OCR and text
-    const finalOCR: OCRInfo[] = [
-      [10, 20, 150, 30, '第一章'],
-      [10, 60, 200, 25, '古代日本の歴史'],
-      [10, 100, 300, 22, '完全に更新されたコンテンツ'],
-    ]
-    const updatedPageBoth = await db.updatePageOCRAndText(
-      page1.id!,
-      finalOCR,
-      '第一章 古代日本について完全に更新された内容です。縄文時代から弥生時代まで詳しく解説します。',
-    )
-    console.log('Updated both OCR and text:', updatedPageBoth.id)
-
-    // Get updated page to verify
-    const retrievedPage = await db.getPageById(page1.id!)
-    console.log('Retrieved updated page:', {
-      id: retrievedPage?.id,
-      name: retrievedPage?.name,
-      ocrCount: retrievedPage?.ocr_info.length,
-      textLength: retrievedPage?.text?.length,
-    })
-  } catch (error) {
-    console.error('Error:', error)
-  } finally {
-    await db.close()
-  }
-}
 
 // Export for use in other modules
 export { Book, Page, OCRInfo, db }

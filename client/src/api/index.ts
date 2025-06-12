@@ -13,6 +13,25 @@ interface PaginatedResult<T> {
   }
 }
 
+export interface Book {
+  id: number
+  name: string
+}
+
+export interface Page {
+  id?: number
+  book_id: number
+  page_number: number
+  name?: string
+  image_url: string
+  image_width: number
+  image_height: number
+  ocr_info: BoxOutput[]
+  text?: string
+  created_at?: Date
+  updated_at?: Date
+}
+
 export async function login(userName: string, password: string) {
   try {
     const result = await axios.post('/api/login', { userName, password })
@@ -126,7 +145,30 @@ export async function searchBookByName(
       },
     })
     if (result.data.status === 'success') {
-      return result.data.data as PaginatedResult<{ id: number; name: string }>
+      return result.data.data as PaginatedResult<Book>
+    } else {
+      return false
+    }
+  } catch (e) {
+    handleError(e as any)
+    return false
+  }
+}
+
+// E2
+export async function searchPageContent(
+  keyword: string,
+  bookIds: number[],
+  option: { page: number; limit: number },
+) {
+  try {
+    const result = await axios.post('/api/search-page-content', {
+      bookIds,
+      keyword,
+      option,
+    })
+    if (result.data.status === 'success') {
+      return result.data.data as PaginatedResult<Page & { book_name: string }>
     } else {
       return false
     }

@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed, toRaw } from 'vue'
 import { convertFormat, saveBack } from '../utils'
-import { saveOCRJson, listPages, getPageInfo } from '../api'
-import type { Box, BoxOutput } from '../utils'
+import { saveOCRJson, listPages, getPageInfo, type Page } from '../api'
+import type { Box } from '../utils'
 
 interface EditStatus {
   boxes: Box[]
@@ -33,20 +33,6 @@ const INIT_STATE: Detail = {
 }
 
 type Mode = 'drag' | 'edit' | 'add'
-
-interface Page {
-  id?: number
-  book_id: number
-  page_number: number
-  name?: string
-  image_url: string
-  image_width: number
-  image_height: number
-  ocr_info: BoxOutput[]
-  text?: string
-  created_at?: Date
-  updated_at?: Date
-}
 
 export const useProofreadingStore = defineStore('proofreading', () => {
   const bookId = ref(-1)

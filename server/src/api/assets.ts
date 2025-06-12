@@ -130,6 +130,27 @@ assetsRouter.get(
   },
 )
 
+// E2
+assetsRouter.post(
+  '/api/search-page-content',
+  verifyLogin,
+  async (req: Request, res: Response) => {
+    const { bookIds, keyword, option } = req.body
+    try {
+      const result = await db.searchPages(keyword, bookIds, option)
+
+      res.json({
+        status: 'success',
+        data: result,
+      })
+    } catch {
+      res.json({
+        status: 'failed',
+      })
+    }
+  },
+)
+
 assetsRouter.get(
   '/api/download-book',
   verifyLogin,
