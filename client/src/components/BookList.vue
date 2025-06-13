@@ -74,7 +74,7 @@ const goToFirstPageOfBook = (id: number) => {
 
 <style lang="scss" scoped>
 .book-list {
-  margin: 32px auto;
+  margin: 24px auto;
   .gallery {
     margin-bottom: 24px;
     display: grid;

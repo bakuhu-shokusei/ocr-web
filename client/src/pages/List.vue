@@ -33,5 +33,6 @@ watch(
   margin: 0 auto;
   padding: 1px 16px;
   box-sizing: border-box;
+  overflow: auto;
 }
 </style>
