@@ -14,16 +14,18 @@ export const PAGE_SIZE = 10
 export const useSearchStore = defineStore('search', () => {
   // Reactive state
   const currentStep = ref(1)
+
   const bookQuery = ref('')
-  const contentQuery = ref('')
   const totalBooks = ref(0)
-  const totalPages = ref(0)
   const displayedBooks = ref<Book[]>([])
   const selectedBooks = ref<Book[]>([]) // when there is no selection, search the entire database
-  const searchResults = ref<(Page & { book_name: string })[]>([])
   const currentPageOfBooks = ref(1)
-  const currentPageOfPages = ref(1)
   const loading = ref(false)
+
+  const contentQuery = ref('')
+  const totalPages = ref(0)
+  const searchResults = ref<(Page & { book_name: string })[]>([])
+  const currentPageOfPages = ref(1)
   const contentLoading = ref(false)
 
   // Methods
@@ -64,10 +66,8 @@ export const useSearchStore = defineStore('search', () => {
   const toggleBookSelection = (book: Book) => {
     if (isBookSelected(book)) {
       selectedBooks.value = selectedBooks.value.filter((b) => b.id !== book.id)
-    } else if (selectedBooks.value.length < 10) {
-      selectedBooks.value = [...selectedBooks.value, book]
     } else {
-      message.warning('You can select at most 10 books')
+      selectedBooks.value = [...selectedBooks.value, book]
     }
   }
 
@@ -79,6 +79,7 @@ export const useSearchStore = defineStore('search', () => {
     currentStep.value = 2
     resetPageSearch()
   }
+
   const resetPageSearch = () => {
     contentQuery.value = ''
     totalPages.value = 0

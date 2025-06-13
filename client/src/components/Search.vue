@@ -45,7 +45,7 @@
         class="selected-books"
       >
         <template #extra>
-          <Text type="secondary"> {{ selectedBooks.length }}/10 選択中 </Text>
+          <Text type="secondary"> {{ selectedBooks.length }} 選択中 </Text>
         </template>
 
         <div style="margin-bottom: 16px">
@@ -110,7 +110,9 @@
                       class="book-name"
                       @click="goToFirstPageOfBook(item.id)"
                     >
-                      {{ item.name }}
+                      <span
+                        v-html="highlightText(item.name!, bookQuery)"
+                      ></span>
                     </Text>
                   </template>
                   <template #description>
@@ -281,6 +283,7 @@ const {
 
 .book-name {
   cursor: pointer;
+  white-space: normal;
   &:hover {
     color: var(--primary-blue);
   }

@@ -21,5 +21,6 @@ import Search from '../components/Search.vue'
   width: 100%;
   margin: 0 auto;
   padding: 1px 16px;
+  box-sizing: border-box;
 }
 </style>

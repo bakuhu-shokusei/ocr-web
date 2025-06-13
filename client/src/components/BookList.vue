@@ -78,7 +78,7 @@ const goToFirstPageOfBook = (id: number) => {
   .gallery {
     margin-bottom: 24px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 16px;
     .tile {
       background-color: #f8fafd;
@@ -117,17 +117,6 @@ const goToFirstPageOfBook = (id: number) => {
         }
         a {
           color: inherit;
-        }
-        @media (max-width: 480px) {
-          .anticon {
-            padding: 4px;
-          }
-        }
-        @media (max-width: 400px) {
-          font-size: 16px;
-          .anticon {
-            padding: 4px;
-          }
         }
       }
 
